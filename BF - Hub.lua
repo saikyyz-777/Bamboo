@@ -1,6 +1,7 @@
 -- Build a Bamboo Factory Hub v2.5
 -- AutoCollect | AutoBuy | AutoCash | Config | Rebirth
 -- v2.5: Aba Rebirth integrada nativamente (manual + auto + contador)
+-- FIX: preset agora salva/carrega estado do toggle AutoRebirth
 
 local TweenService     = game:GetService("TweenService")
 local Players          = game:GetService("Players")
@@ -21,6 +22,11 @@ local tpwalkSpeed    = 80
 local jpower         = 110
 local infJumpEnabled = false
 local antiAfkEnabled = false
+
+-- ════════════════════════════════════════════════════════════════
+-- BRIDGE GLOBAL: expoe estado do Rebirth para presets
+-- ════════════════════════════════════════════════════════════════
+_G._BFHub_RebirthState = { enabled = false, start = nil, stop = nil }
 
 -- ════════════════════════════════════════════════════════════════
 -- SAVE / LOAD GERAL
@@ -111,6 +117,7 @@ function ProfileSystem:createProfile(name)
         tpwalkSpeed=80, jpower=110, infJumpEnabled=false,
         collectDelay=4.25, buyDelay=0.1, cashDelay=10, autoBuyItems={},
         autoCollectEnabled=false, autoBuyEnabled=false, autoCashEnabled=false,
+        autoRebirthEnabled=false,
     }
     self:save(); return true
 end
@@ -556,7 +563,6 @@ local tabLayout2 = Instance.new("UIListLayout", tabBar)
 tabLayout2.FillDirection = Enum.FillDirection.Horizontal; tabLayout2.Padding = UDim.new(0,2)
 tabLayout2.HorizontalAlignment = Enum.HorizontalAlignment.Center; tabLayout2.VerticalAlignment = Enum.VerticalAlignment.Center
 
--- v2.5: TAB_W reduzido de 106 para 84 para caber 5 abas (5*84 + 4*2 = 428 < 444)
 local TAB_W = 84
 
 local tabIndicator = Instance.new("Frame", contentFrame)
@@ -582,9 +588,8 @@ local collectFrame  = makeScrollFrame(contentFrame); collectFrame.Visible = true
 local buyFrame      = makeScrollFrame(contentFrame)
 local cashFrame     = makeScrollFrame(contentFrame)
 local configFrame   = makeScrollFrame(contentFrame)
-local rebirthFrame  = makeScrollFrame(contentFrame)  -- v2.5: aba Rebirth
+local rebirthFrame  = makeScrollFrame(contentFrame)
 
--- v2.5: 5 abas, 5 cores
 local TAB_COLS   = {C.accent_green, C.accent_gold, C.accent_cyan, C.accent_purple, C.accent_orange}
 local TAB_FRAMES = {collectFrame, buyFrame, cashFrame, configFrame, rebirthFrame}
 local ALL_TABS   = {}; local activeTab = nil
@@ -607,7 +612,6 @@ local function switchTab(order)
     for _,b in ipairs(ALL_TABS)   do tw(b,{TextColor3=C.text_dim},0.2) end
     TAB_FRAMES[order].Visible=true; tw(ALL_TABS[order],{TextColor3=C.text_white},0.2)
     activeTab=ALL_TABS[order]
-    -- v2.5: calculo com 5 abas e gap=2
     local tbw=tabBar.AbsoluteSize.X; local tot=5*TAB_W+4*2; local left=(tbw-tot)/2
     tw(tabIndicator,{Size=UDim2.new(0,TAB_W*0.7,0,30)},0.12,Enum.EasingStyle.Quad)
     task.delay(0.12, function()
@@ -621,7 +625,6 @@ local function switchTab(order)
     task.delay(0.05, function() animateTabCards(TAB_FRAMES[order]) end)
 end
 
--- v2.5: 5 abas definidas de uma vez
 for _,def in ipairs({
     {"Collect","[C]",1},
     {"AutoBuy","[B]",2},
@@ -1205,15 +1208,25 @@ cashClick.MouseButton1Click:Connect(function() setAutoCash(not autoCashEnabled) 
 cashSyncFn = function(v) setAutoCash(v) end
 
 -- ════════════════════════════════════════════════════════════════
--- CONFIG TAB
+-- getCurrentData / applyProfileData (incluindo autoRebirthEnabled)
 -- ════════════════════════════════════════════════════════════════
 local function getCurrentData()
     return {
-        tpwalkSpeed=tpwalkSpeed, jpower=jpower, infJumpEnabled=infJumpEnabled,
-        collectDelay=collectDelay, buyDelay=buyDelay, cashDelay=cashDelay, autoBuyItems=autoBuyItems,
-        autoCollectEnabled=autoCollectEnabled, autoBuyEnabled=autoBuyEnabled, autoCashEnabled=autoCashEnabled,
+        tpwalkSpeed        = tpwalkSpeed,
+        jpower             = jpower,
+        infJumpEnabled     = infJumpEnabled,
+        collectDelay       = collectDelay,
+        buyDelay           = buyDelay,
+        cashDelay          = cashDelay,
+        autoBuyItems       = autoBuyItems,
+        autoCollectEnabled = autoCollectEnabled,
+        autoBuyEnabled     = autoBuyEnabled,
+        autoCashEnabled    = autoCashEnabled,
+        -- v2.5 fix: salva estado do Auto Rebirth via bridge global
+        autoRebirthEnabled = (_G._BFHub_RebirthState and _G._BFHub_RebirthState.enabled) or false,
     }
 end
+
 local function applyProfileData(data)
     if data.tpwalkSpeed then tpwalkSpeed=data.tpwalkSpeed; if tpwalkInputRef then tpwalkInputRef.Text=tostring(tpwalkSpeed) end end
     if data.jpower then jpower=data.jpower; if humanoid.UseJumpPower then humanoid.JumpPower=jpower else humanoid.JumpHeight=jpower end; if jumpInputRef then jumpInputRef.Text=tostring(jpower) end end
@@ -1234,10 +1247,26 @@ local function applyProfileData(data)
     if data.autoCollectEnabled~=nil then acSyncFn(data.autoCollectEnabled==true) end
     if data.autoBuyEnabled~=nil     then abSyncFn(data.autoBuyEnabled==true) end
     if data.autoCashEnabled~=nil    then cashSyncFn(data.autoCashEnabled==true) end
+
+    -- v2.5 fix: aplica estado do Auto Rebirth via bridge global
+    if data.autoRebirthEnabled ~= nil then
+        local rb = _G._BFHub_RebirthState
+        if rb then
+            if data.autoRebirthEnabled == true then
+                if rb.start and not rb.enabled then rb.start() end
+            else
+                if rb.stop and rb.enabled then rb.stop() end
+            end
+        end
+    end
+
     if currentProfLbl then currentProfLbl.Text="Ativo: "..ProfileSystem.currentProfile end
     notify("Preset","Perfil '"..ProfileSystem.currentProfile.."' carregado!",2,C.accent_gold)
 end
 
+-- ════════════════════════════════════════════════════════════════
+-- CONFIG TAB
+-- ════════════════════════════════════════════════════════════════
 local function makeConfigToggle(parent, label, icon, initial, order, color, onChange)
     local card = makeCard(parent,54,order); local cs2 = card:FindFirstChildWhichIsA("UIStroke")
     local state = {value=initial}
@@ -1266,7 +1295,7 @@ local function makeConfigToggle(parent, label, icon, initial, order, color, onCh
 end
 
 -- ════════════════════════════════════════════════════════════════
--- ANTIAFK (função global, chamada automática no load)
+-- ANTIAFK
 -- ════════════════════════════════════════════════════════════════
 local _afkBtnRef = nil
 local function activateAntiAFK(btnRef)
@@ -1561,6 +1590,9 @@ local function buildConfigTab()
     stopBtn.MouseLeave:Connect(function() tw(stopBtn,{BackgroundTransparency=0.2,Size=UDim2.new(1,-20,0,36)},0.2) end)
     stopBtn.MouseButton1Click:Connect(function()
         setAutoCollect(false); setAutoBuy(false); setAutoCash(false); infJumpEnabled=false; ijUpd(false)
+        -- Para o Auto Rebirth tambem
+        local rb = _G._BFHub_RebirthState
+        if rb and rb.enabled and rb.stop then rb.stop() end
         tweenBounce(stopBtn,{BackgroundColor3=Color3.fromRGB(255,100,100)},0.1); task.wait(0.5); tw(stopBtn,{BackgroundColor3=C.accent_red},0.3)
         notify("Parar Tudo","Todos os sistemas desativados!",3,C.accent_red)
     end)
@@ -1568,12 +1600,12 @@ end
 buildConfigTab()
 
 -- ════════════════════════════════════════════════════════════════
--- ABA REBIRTH (v2.5)
+-- ABA REBIRTH (v2.5) — com bridge global para presets
 -- ════════════════════════════════════════════════════════════════
 local function buildRebirthTab()
     local rebirthRemote = game:GetService("ReplicatedStorage").Remotes.Rebirth
 
-    -- ── Card 1: Botão Manual ──────────────────────────────────
+    -- ── Card 1: Botao Manual ──────────────────────────────────
     local manualCard = makeCard(rebirthFrame, 72, 1)
     local mcs = manualCard:FindFirstChildWhichIsA("UIStroke"); if mcs then tw(mcs,{Color=C.accent_orange},0) end
     local manualHeader = Instance.new("TextLabel", manualCard)
@@ -1605,12 +1637,10 @@ local function buildRebirthTab()
     rbKnob.Size=UDim2.new(0,24,0,24); rbKnob.Position=UDim2.new(0,3,0,3)
     rbKnob.BackgroundColor3=C.text_white; rbKnob.BorderSizePixel=0; Instance.new("UICorner",rbKnob).CornerRadius=UDim.new(1,0)
 
-    -- Separador
     local rbSep = Instance.new("Frame", autoCard)
     rbSep.Size=UDim2.new(1,-20,0,1); rbSep.Position=UDim2.new(0,10,0,50)
     rbSep.BackgroundColor3=C.border_dim; rbSep.BorderSizePixel=0
 
-    -- Campo delay inline
     local delayRowLbl = Instance.new("TextLabel", autoCard)
     delayRowLbl.Size=UDim2.new(0.5,0,0,22); delayRowLbl.Position=UDim2.new(0,12,0,58)
     delayRowLbl.BackgroundTransparency=1; delayRowLbl.Text="Delay (seg)"
@@ -1678,7 +1708,7 @@ local function buildRebirthTab()
         notify("Rebirth","Contador zerado.",2,C.accent_red)
     end)
 
-    -- ── Lógica Auto Rebirth ───────────────────────────────────
+    -- ── Logica Auto Rebirth ───────────────────────────────────
     local rbEnabled = false; local rbThread = nil; local sessionCount = 0
 
     local function updateRbToggle(state)
@@ -1687,6 +1717,8 @@ local function buildRebirthTab()
             {Position=state and UDim2.new(1,-27,0,3) or UDim2.new(0,3,0,3)}):Play()
         autoIcon.TextColor3=state and C.accent_orange or C.text_muted
         if acs2 then tw(acs2,{Color=state and C.accent_orange or C.border_dim},0.25) end
+        -- sincroniza bridge global
+        _G._BFHub_RebirthState.enabled = state
     end
 
     local function stopRb()
@@ -1697,6 +1729,7 @@ local function buildRebirthTab()
     end
 
     local function startRb()
+        if rbEnabled then return end  -- evita double-start vindo do preset
         rbEnabled=true; sessionCount=0; updateRbToggle(true)
         notify("Auto Rebirth","Iniciado! Delay: "..rebirthData.delay.."s",2,C.accent_orange)
         rbThread=task.spawn(function()
@@ -1717,6 +1750,10 @@ local function buildRebirthTab()
             end
         end)
     end
+
+    -- Registra as funcoes na bridge global para acesso pelos presets
+    _G._BFHub_RebirthState.start = startRb
+    _G._BFHub_RebirthState.stop  = stopRb
 
     rbToggleBtn.MouseButton1Click:Connect(function()
         if rbEnabled then stopRb() else startRb() end
@@ -1820,7 +1857,7 @@ runLoadingSequence(function()
         tw(mainStroke,{Transparency=0.7},0.2); task.wait(0.2); tw(mainStroke,{Transparency=0},0.3)
         notify("Build a Bamboo Factory Hub","v2.5 carregado!",3,C.accent_green)
 
-        -- AntiAFK automático ao carregar
+        -- AntiAFK automatico ao carregar
         task.delay(1.5, function()
             activateAntiAFK(nil)
         end)
