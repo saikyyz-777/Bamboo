@@ -3,6 +3,7 @@
 -- v2.5: Aba Rebirth integrada nativamente (manual + auto + contador)
 -- FIX: preset agora salva/carrega estado do toggle AutoRebirth
 -- NEW: Quantidade por item no AutoBuy + delay livre
+-- NEW: Drag and Drop com prioridade (1ยบ, 2ยบ...) no AutoBuy
 
 local TweenService     = game:GetService("TweenService")
 local Players          = game:GetService("Players")
@@ -187,9 +188,9 @@ screenGui.ResetOnSpawn   = false
 screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 screenGui.IgnoreGuiInset = true
 
--- ════════════════════════════════════════════════════════════════
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
 -- TELA DE CARREGAMENTO
--- ════════════════════════════════════════════════════════════════
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
 local loadScreen = Instance.new("Frame", screenGui)
 loadScreen.Size = UDim2.new(1,0,1,0)
 loadScreen.BackgroundColor3 = Color3.fromRGB(6,6,14)
@@ -285,9 +286,9 @@ task.spawn(function()
     end
 end)
 
--- ════════════════════════════════════════════════════════════════
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
 -- NOTIFICACOES
--- ════════════════════════════════════════════════════════════════
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
 local notifStack = {}
 local function getNotifIcon(col)
     if col == C.accent_green  then return "[OK]"
@@ -344,9 +345,9 @@ local function notify(title, msg, dur, col)
     end)
 end
 
--- ════════════════════════════════════════════════════════════════
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
 -- GLOWS
--- ════════════════════════════════════════════════════════════════
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
 local function makeGlow(sz, off, col, trans)
     local g = Instance.new("Frame", screenGui)
     g.AnchorPoint = Vector2.new(0.5,0.5)
@@ -361,9 +362,9 @@ local g2_ = makeGlow(22, 4, Color3.fromRGB(20,100,60),  0.84)
 local g3  = makeGlow(40, 6, Color3.fromRGB(15,80,50),   0.90)
 local allGlows = {g1, g2_, g3}
 
--- ════════════════════════════════════════════════════════════════
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
 -- MAIN FRAME
--- ════════════════════════════════════════════════════════════════
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
 local mainFrame = Instance.new("Frame", screenGui)
 mainFrame.AnchorPoint = Vector2.new(0.5,0.5); mainFrame.Size = UDim2.new(0,0,0,0)
 mainFrame.Position = UDim2.new(0.5,0,0.5,0); mainFrame.BackgroundColor3 = C.bg_dark
@@ -390,18 +391,18 @@ local function syncGlows()
     g3.Position  = UDim2.new(p.X.Scale,p.X.Offset,p.Y.Scale,p.Y.Offset+18)
 end
 
--- ════════════════════════════════════════════════════════════════
--- DRAG
--- ════════════════════════════════════════════════════════════════
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- DRAG (mover janela)
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
 local dragging, dragInput, dragStart, startPos = false, nil, nil, nil
 local glowDirty = false
 RunService.Heartbeat:Connect(function()
     if glowDirty then syncGlows(); glowDirty = false end
 end)
 
--- ════════════════════════════════════════════════════════════════
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
 -- TITULO
--- ════════════════════════════════════════════════════════════════
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
 local titleBar = Instance.new("Frame", mainFrame)
 titleBar.Size = UDim2.new(1,0,0,62); titleBar.BackgroundColor3 = Color3.fromRGB(14,14,28)
 titleBar.BorderSizePixel = 0; titleBar.ZIndex = 10
@@ -463,9 +464,9 @@ Instance.new("UICorner", minimizeBtn).CornerRadius = UDim.new(0,9); addRipple(mi
 minimizeBtn.MouseEnter:Connect(function() tw(minimizeBtn,{BackgroundTransparency=0},0.2) end)
 minimizeBtn.MouseLeave:Connect(function() tw(minimizeBtn,{BackgroundTransparency=0.3},0.2) end)
 
--- ════════════════════════════════════════════════════════════════
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
 -- BOTAO RESTAURAR
--- ════════════════════════════════════════════════════════════════
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
 local restoreBtn = Instance.new("Frame", screenGui)
 restoreBtn.Name = "RestoreBtn"; restoreBtn.Size = UDim2.new(0,55,0,55); restoreBtn.Position = UDim2.new(1,-70,0,80)
 restoreBtn.BackgroundColor3 = C.bg_dark; restoreBtn.BorderSizePixel = 0; restoreBtn.Visible = false; restoreBtn.ZIndex = 1000; restoreBtn.Active = true
@@ -493,9 +494,9 @@ task.spawn(function()
     end
 end)
 
--- ════════════════════════════════════════════════════════════════
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
 -- MINIMIZAR / RESTAURAR
--- ════════════════════════════════════════════════════════════════
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
 local function hideHub()
     tw(mainFrame,{BackgroundTransparency=0.3},0.08); task.wait(0.08)
     tw(mainFrame,{BackgroundTransparency=0},0.08); task.wait(0.1)
@@ -523,9 +524,9 @@ end
 minimizeBtn.MouseButton1Click:Connect(hideHub)
 restoreClick.MouseButton1Click:Connect(showHub)
 
--- ════════════════════════════════════════════════════════════════
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
 -- CONTENT + ABAS
--- ════════════════════════════════════════════════════════════════
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
 local contentFrame = Instance.new("Frame", mainFrame)
 contentFrame.Size = UDim2.new(1,-16,1,-72); contentFrame.Position = UDim2.new(0,8,0,64)
 contentFrame.BackgroundTransparency = 1; contentFrame.ClipsDescendants = true
@@ -623,9 +624,9 @@ task.defer(function()
     tabIndicator.Position=UDim2.new(0,left,0,5)
 end)
 
--- ════════════════════════════════════════════════════════════════
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
 -- HELPERS DE CARD / TOGGLE
--- ════════════════════════════════════════════════════════════════
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
 local function makeCard(parent, height, order)
     local c = Instance.new("Frame", parent)
     c.Size = UDim2.new(1,-6,0,height); c.BackgroundColor3 = C.bg_card
@@ -690,9 +691,9 @@ local function makeInputField(parent, labelText, defaultValue, accentColor, onCh
     return box, card
 end
 
--- ════════════════════════════════════════════════════════════════
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
 -- FORWARD DECLARATIONS
--- ════════════════════════════════════════════════════════════════
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
 local collectDelay = tonumber(savedSettings["collect_delay"]) or 4.25
 local buyDelay     = tonumber(savedSettings["buy_delay"])     or 0.1
 local cashDelay    = tonumber(savedSettings["cash_delay"])    or 10
@@ -707,9 +708,9 @@ local acSyncFn       = function() end
 local abSyncFn       = function() end
 local cashSyncFn     = function() end
 
--- ════════════════════════════════════════════════════════════════
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
 -- AUTOCOLLECT
--- ════════════════════════════════════════════════════════════════
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
 local autoCollectEnabled = false; local autoCollectThread = nil
 local acClick,acUpdateVis,acGetEnabled,acSetEnabled = makeToggleCard(collectFrame,"AutoCollect","[C]",C.accent_green,1)
 collectDelayBox,_ = makeInputField(collectFrame,"Delay entre TPs (segundos)",collectDelay,C.accent_green,function(val)
@@ -789,20 +790,18 @@ end
 acClick.MouseButton1Click:Connect(function() setAutoCollect(not autoCollectEnabled) end)
 acSyncFn = function(v) setAutoCollect(v) end
 
--- ════════════════════════════════════════════════════════════════
--- AUTOBUY
--- ════════════════════════════════════════════════════════════════
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- AUTOBUY โ€” helpers de dados
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
 local function loadAutoBuyItemsFull()
     local ok, data = pcall(function() return readfile(SAVE_FILE_AUTOBUY) end)
     if not ok or not data or data == "" then return {} end
     local items = {}
     for line in data:gmatch("[^\n]+") do
-        -- formato novo: nome|flex|qty
         local name, flex, qty = line:match("^(.+)|([01])|(%d+)$")
         if name then
             table.insert(items, {name=name, flex=(flex=="1"), qty=tonumber(qty) or 0})
         else
-            -- formato antigo: nome|flex
             local name2, flex2 = line:match("^(.+)|([01])$")
             if name2 then
                 table.insert(items, {name=name2, flex=(flex2=="1"), qty=0})
@@ -867,7 +866,6 @@ end
 
 local abClick,abUpdateVis,abGetEnabled,abSetEnabled = makeToggleCard(buyFrame,"AutoBuy","[B]",C.accent_gold,1)
 
--- Delay box — aceita qualquer valor >= 0
 buyDelayBox,_ = makeInputField(buyFrame,"Delay entre compras (seg)",buyDelay,C.accent_gold,function(val)
     local n=tonumber(val); if n and n>=0 then buyDelay=n; savedSettings["buy_delay"]=n; saveSettings(savedSettings)
         if buyDelayRef then buyDelayRef.Text=tostring(n) end end
@@ -895,24 +893,19 @@ local function setAutoBuy(state)
     if state then
         autoBuyThread = task.spawn(function()
             local MerchantBuy = game:GetService("ReplicatedStorage").Remotes.MerchantBuy
-            -- contadores individuais por item (referencia da entry)
             local itemCounts = {}
             while autoBuyEnabled do
                 if #autoBuyItems == 0 then task.wait(2); continue end
                 for _, entry in ipairs(autoBuyItems) do
                     if not autoBuyEnabled then break end
                     local qty = entry.qty or 0
-                    -- pula se atingiu o limite desse item
                     if qty > 0 and (itemCounts[entry] or 0) >= qty then continue end
                     local realName = resolveItemName(entry)
                     if getStock(realName) == 0 then continue end
                     MerchantBuy:FireServer(realName)
-                    if qty > 0 then
-                        itemCounts[entry] = (itemCounts[entry] or 0) + 1
-                    end
-                    task.wait(buyDelay) -- sem MIN_DELAY, aceita 0.0001
+                    if qty > 0 then itemCounts[entry] = (itemCounts[entry] or 0) + 1 end
+                    task.wait(buyDelay)
                 end
-                -- verifica se todos os itens com limite foram atingidos
                 local allDone = true
                 for _, entry in ipairs(autoBuyItems) do
                     local qty = entry.qty or 0
@@ -935,15 +928,15 @@ end
 abClick.MouseButton1Click:Connect(function() setAutoBuy(not autoBuyEnabled) end)
 abSyncFn = function(v) setAutoBuy(v) end
 
--- ════════════════════════════════════════════════════════════════
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
 -- CARD ITENS SALVOS
--- ════════════════════════════════════════════════════════════════
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
 local itemsCard = makeCard(buyFrame, 80, 3)
 local ics = itemsCard:FindFirstChildWhichIsA("UIStroke"); if ics then tw(ics,{Color=C.accent_gold},0) end
 local itemsLbl = Instance.new("TextLabel",itemsCard)
 itemsLbl.Size=UDim2.new(1,-16,0,20); itemsLbl.Position=UDim2.new(0,10,0,6)
-itemsLbl.BackgroundTransparency=1; itemsLbl.Text="Itens salvos"; itemsLbl.TextColor3=C.accent_gold
-itemsLbl.Font=Enum.Font.GothamBold; itemsLbl.TextSize=13; itemsLbl.TextXAlignment=Enum.TextXAlignment.Left
+itemsLbl.BackgroundTransparency=1; itemsLbl.Text="Itens salvos (arraste โก para reordenar)"
+itemsLbl.TextColor3=C.accent_gold; itemsLbl.Font=Enum.Font.GothamBold; itemsLbl.TextSize=12; itemsLbl.TextXAlignment=Enum.TextXAlignment.Left
 local itemsScroll = Instance.new("ScrollingFrame",itemsCard)
 itemsScroll.Size=UDim2.new(1,-16,0,46); itemsScroll.Position=UDim2.new(0,8,0,28)
 itemsScroll.BackgroundColor3=C.bg_input; itemsScroll.BorderSizePixel=0
@@ -960,9 +953,304 @@ itemsLayout2:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     itemsCard.Size = UDim2.new(1,-6,0,math.max(80,h+46)); itemsScroll.Size = UDim2.new(1,-16,0,math.min(h,140))
 end)
 
--- ════════════════════════════════════════════════════════════════
--- addItemTag — com campo qty por item
--- ════════════════════════════════════════════════════════════════
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- DRAG AND DROP โ€” estado global
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+local dragState = {
+    active     = false,
+    entry      = nil,
+    ghost      = nil,
+    sourceIdx  = nil,
+    lastTarget = nil,
+}
+
+local function cancelDrag()
+    if dragState.ghost and dragState.ghost.Parent then
+        dragState.ghost:Destroy()
+    end
+    dragState.active     = false
+    dragState.entry      = nil
+    dragState.ghost      = nil
+    dragState.sourceIdx  = nil
+    dragState.lastTarget = nil
+end
+
+local function badgeColor(idx)
+    if     idx == 1 then return Color3.fromRGB(255,200,50),  Color3.fromRGB(120,80,0)
+    elseif idx == 2 then return Color3.fromRGB(190,190,210), Color3.fromRGB(80,80,100)
+    elseif idx == 3 then return Color3.fromRGB(200,120,60),  Color3.fromRGB(100,50,10)
+    else                 return C.text_muted,                C.bg_deep end
+end
+
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- rebuildItemsList โ€” constrรณi toda a lista respeitando autoBuyItems
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+local rebuildItemsList  -- forward declaration para uso recursivo interno
+
+rebuildItemsList = function()
+    for _, c in ipairs(itemsScroll:GetChildren()) do
+        if c:IsA("Frame") then c:Destroy() end
+    end
+
+    for idx, entry in ipairs(autoBuyItems) do
+        if not entry.qty then entry.qty = 0 end
+
+        local tag = Instance.new("Frame", itemsScroll)
+        tag.Name             = "ItemTag_"..idx
+        tag.Size             = UDim2.new(1,0,0,34)
+        tag.BackgroundColor3 = Color3.fromRGB(22,22,40)
+        tag.BorderSizePixel  = 0
+        tag.LayoutOrder      = idx
+        Instance.new("UICorner", tag).CornerRadius = UDim.new(0,9)
+        local tagStroke = addStroke(tag, C.border_dim, 1, 0.4)
+
+        -- Badge de posiรงรฃo
+        local badgeBg = Instance.new("Frame", tag)
+        badgeBg.Size             = UDim2.new(0,26,0,26)
+        badgeBg.Position         = UDim2.new(0,4,0.5,-13)
+        badgeBg.BorderSizePixel  = 0
+        badgeBg.BackgroundColor3 = C.bg_deep
+        Instance.new("UICorner", badgeBg).CornerRadius = UDim.new(0,6)
+        local bc, _ = badgeColor(idx)
+        addStroke(badgeBg, bc, 1.5, 0.2)
+        local badgeLbl = Instance.new("TextLabel", badgeBg)
+        badgeLbl.Size                   = UDim2.new(1,0,1,0)
+        badgeLbl.BackgroundTransparency = 1
+        badgeLbl.Text                   = tostring(idx).."ยฐ"
+        badgeLbl.TextColor3             = bc
+        badgeLbl.Font                   = Enum.Font.GothamBold
+        badgeLbl.TextSize               = 10
+
+        -- Handle drag
+        local handle = Instance.new("TextLabel", tag)
+        handle.Size               = UDim2.new(0,14,1,0)
+        handle.Position           = UDim2.new(0,32,0,0)
+        handle.BackgroundTransparency = 1
+        handle.Text               = "โก"
+        handle.TextColor3         = C.text_muted
+        handle.Font               = Enum.Font.GothamBold
+        handle.TextSize           = 16
+        handle.ZIndex             = 4
+
+        -- Nome
+        local tagLbl = Instance.new("TextLabel", tag)
+        tagLbl.Size             = UDim2.new(1,-196,1,0)
+        tagLbl.Position         = UDim2.new(0,50,0,0)
+        tagLbl.BackgroundTransparency = 1
+        tagLbl.Text             = entry.name
+        tagLbl.TextColor3       = C.accent_gold
+        tagLbl.TextSize         = 12
+        tagLbl.Font             = Enum.Font.GothamBold
+        tagLbl.TextXAlignment   = Enum.TextXAlignment.Left
+        tagLbl.ClipsDescendants = true
+
+        -- Botรฃo Flex/Exato
+        local modeBtn = Instance.new("TextButton", tag)
+        modeBtn.Size            = UDim2.new(0,46,0,20)
+        modeBtn.Position        = UDim2.new(1,-170,0.5,-10)
+        modeBtn.BorderSizePixel = 0
+        modeBtn.Font            = Enum.Font.GothamBold
+        modeBtn.TextSize        = 9
+        Instance.new("UICorner", modeBtn).CornerRadius = UDim.new(0,5)
+        addRipple(modeBtn)
+        local function updateModeBtn()
+            if entry.flex then
+                modeBtn.Text             = "Flex"
+                modeBtn.TextColor3       = C.text_white
+                modeBtn.BackgroundColor3 = Color3.fromRGB(30,80,180)
+            else
+                modeBtn.Text             = "Exato"
+                modeBtn.TextColor3       = C.text_white
+                modeBtn.BackgroundColor3 = Color3.fromRGB(150,70,10)
+            end
+        end
+        addStroke(modeBtn, C.accent_blue, 1, 0.3); updateModeBtn()
+        modeBtn.MouseButton1Click:Connect(function()
+            entry.flex = not entry.flex; updateModeBtn(); saveAutoBuyItemsFull(autoBuyItems)
+            tweenBounce(modeBtn,{TextSize=11},0.12); task.wait(0.25); tw(modeBtn,{TextSize=9},0.15)
+        end)
+
+        -- Qty label + box
+        local qtyLbl = Instance.new("TextLabel", tag)
+        qtyLbl.Size               = UDim2.new(0,12,0,20)
+        qtyLbl.Position           = UDim2.new(1,-120,0.5,-10)
+        qtyLbl.BackgroundTransparency = 1
+        qtyLbl.Text               = "x"
+        qtyLbl.TextColor3         = C.text_muted
+        qtyLbl.Font               = Enum.Font.GothamBold
+        qtyLbl.TextSize           = 10
+
+        local qtyBox = Instance.new("TextBox", tag)
+        qtyBox.Size               = UDim2.new(0,42,0,20)
+        qtyBox.Position           = UDim2.new(1,-106,0.5,-10)
+        qtyBox.BackgroundColor3   = Color3.fromRGB(18,18,34)
+        qtyBox.BorderSizePixel    = 0
+        qtyBox.Text               = tostring(entry.qty)
+        qtyBox.TextColor3         = C.accent_cyan
+        qtyBox.PlaceholderText    = "0"
+        qtyBox.PlaceholderColor3  = C.text_muted
+        qtyBox.Font               = Enum.Font.GothamBold
+        qtyBox.TextSize           = 11
+        qtyBox.TextXAlignment     = Enum.TextXAlignment.Center
+        qtyBox.ClearTextOnFocus   = false
+        Instance.new("UICorner", qtyBox).CornerRadius = UDim.new(0,5)
+        local qtyStroke = addStroke(qtyBox, C.border_dim, 1, 0.3)
+        qtyBox.Focused:Connect(function()
+            tw(qtyStroke,{Color=C.accent_cyan,Transparency=0},0.15)
+            tw(qtyBox,{BackgroundColor3=Color3.fromRGB(22,22,44)},0.15)
+        end)
+        qtyBox.FocusLost:Connect(function()
+            tw(qtyStroke,{Color=C.border_dim,Transparency=0.3},0.15)
+            tw(qtyBox,{BackgroundColor3=Color3.fromRGB(18,18,34)},0.15)
+            local v = tonumber(qtyBox.Text)
+            if v and v >= 0 then
+                entry.qty   = math.floor(v)
+                qtyBox.Text = tostring(entry.qty)
+                saveAutoBuyItemsFull(autoBuyItems)
+            else
+                qtyBox.Text = tostring(entry.qty)
+            end
+        end)
+
+        -- Botรฃo remover
+        local removeBtn = Instance.new("TextButton", tag)
+        removeBtn.Size             = UDim2.new(0,22,0,22)
+        removeBtn.Position         = UDim2.new(1,-26,0.5,-11)
+        removeBtn.BackgroundColor3 = Color3.fromRGB(160,40,50)
+        removeBtn.BorderSizePixel  = 0
+        removeBtn.Text             = "x"
+        removeBtn.TextColor3       = C.text_white
+        removeBtn.TextSize         = 13
+        removeBtn.Font             = Enum.Font.GothamBold
+        Instance.new("UICorner", removeBtn).CornerRadius = UDim.new(0,5)
+        addRipple(removeBtn)
+        removeBtn.MouseEnter:Connect(function() tw(removeBtn,{BackgroundColor3=Color3.fromRGB(210,60,70)},0.12) end)
+        removeBtn.MouseLeave:Connect(function() tw(removeBtn,{BackgroundColor3=Color3.fromRGB(160,40,50)},0.12) end)
+        removeBtn.MouseButton1Click:Connect(function()
+            for i,v in ipairs(autoBuyItems) do if v==entry then table.remove(autoBuyItems,i); break end end
+            saveAutoBuyItemsFull(autoBuyItems); rebuildItemsList()
+        end)
+
+        -- โ”€โ”€ รrea de drag (sobre badge + handle) โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€
+        local entryRef = entry
+        local dragBtn  = Instance.new("TextButton", tag)
+        dragBtn.Size               = UDim2.new(0,46,1,0)
+        dragBtn.Position           = UDim2.new(0,0,0,0)
+        dragBtn.BackgroundTransparency = 1
+        dragBtn.Text               = ""
+        dragBtn.ZIndex             = 6
+        dragBtn.Active             = true
+
+        dragBtn.MouseEnter:Connect(function()
+            tw(handle,{TextColor3=C.accent_gold},0.12)
+            tw(tagStroke,{Color=C.accent_gold,Transparency=0.1},0.15)
+        end)
+        dragBtn.MouseLeave:Connect(function()
+            if not dragState.active then
+                tw(handle,{TextColor3=C.text_muted},0.12)
+                tw(tagStroke,{Color=C.border_dim,Transparency=0.4},0.15)
+            end
+        end)
+
+        dragBtn.InputBegan:Connect(function(input)
+            if input.UserInputType ~= Enum.UserInputType.MouseButton1
+            and input.UserInputType ~= Enum.UserInputType.Touch then return end
+            if dragState.active then return end
+
+            local srcIdx = nil
+            for i,v in ipairs(autoBuyItems) do if v==entryRef then srcIdx=i; break end end
+            if not srcIdx then return end
+
+            dragState.active    = true
+            dragState.entry     = entryRef
+            dragState.sourceIdx = srcIdx
+
+            -- Ghost flutuante
+            local ghost = Instance.new("Frame", screenGui)
+            ghost.Size             = UDim2.new(0, tag.AbsoluteSize.X, 0, 34)
+            ghost.BackgroundColor3 = Color3.fromRGB(30,30,54)
+            ghost.BackgroundTransparency = 0.1
+            ghost.BorderSizePixel  = 0
+            ghost.ZIndex           = 5000
+            ghost.Active           = false
+            Instance.new("UICorner", ghost).CornerRadius = UDim.new(0,9)
+            addStroke(ghost, C.accent_gold, 2, 0)
+
+            local ghostLbl = Instance.new("TextLabel", ghost)
+            ghostLbl.Size               = UDim2.new(1,-16,1,0)
+            ghostLbl.Position           = UDim2.new(0,8,0,0)
+            ghostLbl.BackgroundTransparency = 1
+            ghostLbl.Text               = tostring(srcIdx).."ยฐ  "..entryRef.name
+            ghostLbl.TextColor3         = C.accent_gold
+            ghostLbl.Font               = Enum.Font.GothamBold
+            ghostLbl.TextSize           = 12
+            ghostLbl.TextXAlignment     = Enum.TextXAlignment.Left
+            ghostLbl.ZIndex             = 5001
+
+            -- Posiรงรฃo inicial do ghost
+            local mPos = input.Position
+            ghost.Position = UDim2.new(0, mPos.X - ghost.AbsoluteSize.X/2, 0, mPos.Y - 17)
+
+            dragState.ghost = ghost
+
+            tw(tag,  {BackgroundTransparency=0.6},0.1)
+            tw(tagStroke, {Color=C.accent_gold, Transparency=0}, 0.15)
+        end)
+    end -- fim for idx
+end -- fim rebuildItemsList
+
+-- โ”€โ”€ Heartbeat: move ghost + preview reorder โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€
+UserInputService.InputChanged:Connect(function(input)
+    if not dragState.active or not dragState.ghost then return end
+    if input.UserInputType ~= Enum.UserInputType.MouseMovement
+    and input.UserInputType ~= Enum.UserInputType.Touch then return end
+
+    local pos = input.Position
+    dragState.ghost.Position = UDim2.new(
+        0, pos.X - dragState.ghost.AbsoluteSize.X / 2,
+        0, pos.Y - 17
+    )
+
+    -- Calcula slot alvo
+    local scrollAbs = itemsScroll.AbsolutePosition
+    local relY      = pos.Y - scrollAbs.Y + itemsScroll.CanvasPosition.Y
+    local slotH     = 34 + 4
+    local targetIdx = math.clamp(math.ceil(relY / slotH), 1, math.max(1, #autoBuyItems))
+
+    if targetIdx ~= dragState.lastTarget then
+        dragState.lastTarget = targetIdx
+        local src = dragState.sourceIdx
+        if src ~= targetIdx then
+            local moved = table.remove(autoBuyItems, src)
+            table.insert(autoBuyItems, targetIdx, moved)
+            dragState.sourceIdx = targetIdx
+            rebuildItemsList() -- atualiza badges em tempo real
+        end
+    end
+end)
+
+-- โ”€โ”€ Soltar: salva e limpa โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€
+UserInputService.InputEnded:Connect(function(input)
+    if not dragState.active then return end
+    if input.UserInputType ~= Enum.UserInputType.MouseButton1
+    and input.UserInputType ~= Enum.UserInputType.Touch then return end
+
+    saveAutoBuyItemsFull(autoBuyItems)
+    notify("AutoBuy","Prioridade salva!",2,C.accent_gold)
+
+    if dragState.ghost and dragState.ghost.Parent then
+        tw(dragState.ghost,{BackgroundTransparency=1},0.15)
+        local g = dragState.ghost
+        task.delay(0.18, function() if g and g.Parent then g:Destroy() end end)
+    end
+
+    cancelDrag()
+    rebuildItemsList() -- rebuild limpo (remove transparรชncia)
+end)
+
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- INPUT CARD (busca + salvar)
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
 local suggestCard, suggestScroll, selectedSuggestions, addBtn = nil, nil, {}, nil
 local function closeSuggestions()
     if suggestCard then suggestCard.Visible=false; suggestCard.Size=UDim2.new(1,-6,0,0) end
@@ -970,92 +1258,6 @@ local function closeSuggestions()
     selectedSuggestions = {}; if addBtn then addBtn.Text = "Salvar" end
 end
 
-local function addItemTag(entry)
-    if not entry.qty then entry.qty = 0 end
-    local name = entry.name
-    local tag = Instance.new("Frame", itemsScroll)
-    tag.Size = UDim2.new(1,0,0,30); tag.BackgroundColor3 = Color3.fromRGB(26,26,44); tag.BorderSizePixel = 0
-    Instance.new("UICorner",tag).CornerRadius = UDim.new(0,8); addStroke(tag, C.border_dim, 1, 0.4)
-
-    -- Nome
-    local tagLbl = Instance.new("TextLabel",tag)
-    tagLbl.Size = UDim2.new(1,-176,1,0); tagLbl.Position = UDim2.new(0,8,0,0)
-    tagLbl.BackgroundTransparency = 1; tagLbl.Text = name; tagLbl.TextColor3 = C.accent_gold
-    tagLbl.TextSize = 12; tagLbl.Font = Enum.Font.GothamBold
-    tagLbl.TextXAlignment = Enum.TextXAlignment.Left; tagLbl.ClipsDescendants = true
-
-    -- Botao Flex/Exato
-    local modeBtn = Instance.new("TextButton",tag)
-    modeBtn.Size = UDim2.new(0,46,0,20); modeBtn.Position = UDim2.new(1,-170,0.5,-10)
-    modeBtn.BorderSizePixel = 0; modeBtn.Font = Enum.Font.GothamBold; modeBtn.TextSize = 9
-    Instance.new("UICorner",modeBtn).CornerRadius = UDim.new(0,5); addRipple(modeBtn)
-    local function updateModeBtn()
-        if entry.flex then
-            modeBtn.Text="Flex"; modeBtn.TextColor3=C.text_white
-            modeBtn.BackgroundColor3=Color3.fromRGB(30,80,180)
-            local s=modeBtn:FindFirstChildWhichIsA("UIStroke"); if s then s.Color=C.accent_blue end
-        else
-            modeBtn.Text="Exato"; modeBtn.TextColor3=C.text_white
-            modeBtn.BackgroundColor3=Color3.fromRGB(150,70,10)
-            local s=modeBtn:FindFirstChildWhichIsA("UIStroke"); if s then s.Color=C.accent_gold end
-        end
-    end
-    addStroke(modeBtn, C.accent_blue, 1, 0.3); updateModeBtn()
-    modeBtn.MouseButton1Click:Connect(function()
-        entry.flex = not entry.flex; updateModeBtn(); saveAutoBuyItemsFull(autoBuyItems)
-        tweenBounce(modeBtn,{TextSize=11},0.12); task.wait(0.25); tw(modeBtn,{TextSize=9},0.15)
-    end)
-
-    -- Label "x" hint
-    local qtyLbl = Instance.new("TextLabel",tag)
-    qtyLbl.Size = UDim2.new(0,12,0,20); qtyLbl.Position = UDim2.new(1,-120,0.5,-10)
-    qtyLbl.BackgroundTransparency = 1; qtyLbl.Text = "x"
-    qtyLbl.TextColor3 = C.text_muted; qtyLbl.Font = Enum.Font.GothamBold; qtyLbl.TextSize = 10
-
-    -- Campo quantidade (0 = infinito)
-    local qtyBox = Instance.new("TextBox",tag)
-    qtyBox.Size = UDim2.new(0,42,0,20); qtyBox.Position = UDim2.new(1,-106,0.5,-10)
-    qtyBox.BackgroundColor3 = Color3.fromRGB(18,18,34); qtyBox.BorderSizePixel = 0
-    qtyBox.Text = tostring(entry.qty); qtyBox.TextColor3 = C.accent_cyan
-    qtyBox.PlaceholderText = "0"; qtyBox.PlaceholderColor3 = C.text_muted
-    qtyBox.Font = Enum.Font.GothamBold; qtyBox.TextSize = 11
-    qtyBox.TextXAlignment = Enum.TextXAlignment.Center; qtyBox.ClearTextOnFocus = false
-    Instance.new("UICorner",qtyBox).CornerRadius = UDim.new(0,5)
-    local qtyStroke = addStroke(qtyBox, C.border_dim, 1, 0.3)
-    qtyBox.Focused:Connect(function()
-        tw(qtyStroke,{Color=C.accent_cyan,Transparency=0},0.15)
-        tw(qtyBox,{BackgroundColor3=Color3.fromRGB(22,22,44)},0.15)
-    end)
-    qtyBox.FocusLost:Connect(function()
-        tw(qtyStroke,{Color=C.border_dim,Transparency=0.3},0.15)
-        tw(qtyBox,{BackgroundColor3=Color3.fromRGB(18,18,34)},0.15)
-        local v = tonumber(qtyBox.Text)
-        if v and v >= 0 then
-            entry.qty = math.floor(v); qtyBox.Text = tostring(entry.qty)
-            saveAutoBuyItemsFull(autoBuyItems)
-        else
-            qtyBox.Text = tostring(entry.qty)
-        end
-    end)
-
-    -- Botao remover
-    local removeBtn = Instance.new("TextButton",tag)
-    removeBtn.Size = UDim2.new(0,22,0,22); removeBtn.Position = UDim2.new(1,-26,0.5,-11)
-    removeBtn.BackgroundColor3 = Color3.fromRGB(160,40,50); removeBtn.BorderSizePixel = 0
-    removeBtn.Text = "x"; removeBtn.TextColor3 = C.text_white; removeBtn.TextSize = 13
-    removeBtn.Font = Enum.Font.GothamBold
-    Instance.new("UICorner",removeBtn).CornerRadius = UDim.new(0,5); addRipple(removeBtn)
-    removeBtn.MouseEnter:Connect(function() tw(removeBtn,{BackgroundColor3=Color3.fromRGB(210,60,70)},0.12) end)
-    removeBtn.MouseLeave:Connect(function() tw(removeBtn,{BackgroundColor3=Color3.fromRGB(160,40,50)},0.12) end)
-    removeBtn.MouseButton1Click:Connect(function()
-        for i,v in ipairs(autoBuyItems) do if v==entry then table.remove(autoBuyItems,i); break end end
-        saveAutoBuyItemsFull(autoBuyItems); tag:Destroy()
-    end)
-end
-
--- ════════════════════════════════════════════════════════════════
--- INPUT CARD (busca + salvar)
--- ════════════════════════════════════════════════════════════════
 local inputCard = makeCard(buyFrame, 66, 4)
 local inputCardStroke = inputCard:FindFirstChildWhichIsA("UIStroke"); if inputCardStroke then tw(inputCardStroke,{Color=C.accent_gold},0) end
 local inputRow = Instance.new("Frame",inputCard)
@@ -1185,9 +1387,10 @@ addBtn.MouseButton1Click:Connect(function()
             local isDupe=false
             for _,v in ipairs(autoBuyItems) do if v.name==nm then isDupe=true; break end end
             if isDupe then duplicates+=1
-            else local entry={name=nm,flex=addFlexMode,qty=0}; table.insert(autoBuyItems,entry); addItemTag(entry); added+=1 end
+            else local entry={name=nm,flex=addFlexMode,qty=0}; table.insert(autoBuyItems,entry); added+=1 end
         end
         saveAutoBuyItemsFull(autoBuyItems); textBox.Text=""; closeSuggestions()
+        rebuildItemsList()
         if added > 0 then
             notify("AutoBuy","+"..added.." itens ["..(addFlexMode and "Flex" or "Exato").."]"..(duplicates>0 and " ("..duplicates.." ja existiam)" or ""),3,C.accent_gold)
             tweenBounce(addBtn,{TextSize=14},0.15); task.wait(0.3); tw(addBtn,{TextSize=12},0.2)
@@ -1197,17 +1400,17 @@ addBtn.MouseButton1Click:Connect(function()
         for _,v in ipairs(autoBuyItems) do
             if v.name==name then tweenBounce(textBox,{BackgroundColor3=Color3.fromRGB(60,20,20)},0.1); task.wait(0.4); tw(textBox,{BackgroundColor3=C.bg_input},0.3); return end
         end
-        local entry={name=name,flex=addFlexMode,qty=0}; table.insert(autoBuyItems,entry); saveAutoBuyItemsFull(autoBuyItems); addItemTag(entry)
+        local entry={name=name,flex=addFlexMode,qty=0}; table.insert(autoBuyItems,entry); saveAutoBuyItemsFull(autoBuyItems)
         textBox.Text=""; closeSuggestions()
+        rebuildItemsList()
         tweenBounce(addBtn,{TextSize=14},0.15); task.wait(0.3); tw(addBtn,{TextSize=12},0.2)
         notify("AutoBuy","["..(addFlexMode and "Flex" or "Exato").."] "..name,2,C.accent_gold)
     end
 end)
-for _,entry in ipairs(autoBuyItems) do addItemTag(entry) end
 
--- ════════════════════════════════════════════════════════════════
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
 -- DEBUG CARD
--- ════════════════════════════════════════════════════════════════
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
 local debugCard = makeCard(buyFrame, 90, 6)
 local dcs = debugCard:FindFirstChildWhichIsA("UIStroke"); if dcs then tw(dcs,{Color=C.accent_purple},0) end
 local debugHeader = Instance.new("TextLabel",debugCard)
@@ -1244,9 +1447,9 @@ copyDebugBtn.MouseButton1Click:Connect(function()
     else notify("Debug","Compre um item manualmente primeiro!",2,C.off_color) end
 end)
 
--- ════════════════════════════════════════════════════════════════
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
 -- AUTOCASH
--- ════════════════════════════════════════════════════════════════
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
 local autoCashEnabled = false; local autoCashThread = nil
 local cashClick,cashUpdateVis,cashGetEnabled,cashSetEnabled = makeToggleCard(cashFrame,"AutoCash","[$]",C.accent_cyan,1)
 cashDelayBox,_ = makeInputField(cashFrame,"Intervalo de envio (segundos)",cashDelay,C.accent_cyan,function(val)
@@ -1273,9 +1476,9 @@ end
 cashClick.MouseButton1Click:Connect(function() setAutoCash(not autoCashEnabled) end)
 cashSyncFn = function(v) setAutoCash(v) end
 
--- ════════════════════════════════════════════════════════════════
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
 -- getCurrentData / applyProfileData
--- ════════════════════════════════════════════════════════════════
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
 local function getCurrentData()
     return {
         tpwalkSpeed        = tpwalkSpeed,
@@ -1310,7 +1513,7 @@ local function applyProfileData(data)
         end
         autoBuyItems=converted; saveAutoBuyItemsFull(autoBuyItems)
         for _,c in ipairs(itemsScroll:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
-        for _,entry in ipairs(autoBuyItems) do addItemTag(entry) end
+        rebuildItemsList()
     end
     if data.autoCollectEnabled~=nil then acSyncFn(data.autoCollectEnabled==true) end
     if data.autoBuyEnabled~=nil     then abSyncFn(data.autoBuyEnabled==true) end
@@ -1329,9 +1532,9 @@ local function applyProfileData(data)
     notify("Preset","Perfil '"..ProfileSystem.currentProfile.."' carregado!",2,C.accent_gold)
 end
 
--- ════════════════════════════════════════════════════════════════
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
 -- CONFIG TAB
--- ════════════════════════════════════════════════════════════════
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
 local function makeConfigToggle(parent, label, icon, initial, order, color, onChange)
     local card = makeCard(parent,54,order); local cs2 = card:FindFirstChildWhichIsA("UIStroke")
     local state = {value=initial}
@@ -1629,7 +1832,6 @@ local function buildConfigTab()
     collectDelayRef=makeDelayInput(delayCard,"Collect",C.accent_green,30,collectDelay,function(b)
         local n=tonumber(b.Text); if n and n>=0 then collectDelay=n; collectDelayBox.Text=tostring(n); savedSettings["collect_delay"]=n; saveSettings(savedSettings) else b.Text=tostring(collectDelay) end
     end)
-    -- Buy delay sem restricao de minimo
     buyDelayRef=makeDelayInput(delayCard,"Buy",C.accent_gold,62,buyDelay,function(b)
         local n=tonumber(b.Text); if n and n>=0 then buyDelay=n; buyDelayBox.Text=tostring(n); savedSettings["buy_delay"]=n; saveSettings(savedSettings) else b.Text=tostring(buyDelay) end
     end)
@@ -1655,9 +1857,9 @@ local function buildConfigTab()
 end
 buildConfigTab()
 
--- ════════════════════════════════════════════════════════════════
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
 -- ABA REBIRTH
--- ════════════════════════════════════════════════════════════════
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
 local function buildRebirthTab()
     local rebirthRemote = game:GetService("ReplicatedStorage").Remotes.Rebirth
 
@@ -1811,9 +2013,9 @@ local function buildRebirthTab()
 end
 buildRebirthTab()
 
--- ════════════════════════════════════════════════════════════════
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
 -- TPWALK
--- ════════════════════════════════════════════════════════════════
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
 local tpwalkConn = nil
 local function setupTpwalk(char)
     if tpwalkConn then tpwalkConn:Disconnect(); tpwalkConn=nil end
@@ -1824,9 +2026,9 @@ local function setupTpwalk(char)
 end
 setupTpwalk(character)
 
--- ════════════════════════════════════════════════════════════════
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
 -- JUMP POWER + INFJUMP
--- ════════════════════════════════════════════════════════════════
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
 local function applyJump()
     if humanoid.UseJumpPower then humanoid.JumpPower=jpower else humanoid.JumpHeight=jpower end
 end
@@ -1840,9 +2042,9 @@ UserInputService.JumpRequest:Connect(function()
     end
 end)
 
--- ════════════════════════════════════════════════════════════════
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
 -- RESPAWN
--- ════════════════════════════════════════════════════════════════
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
 player.CharacterAdded:Connect(function(newChar)
     character=newChar; hrp=newChar:WaitForChild("HumanoidRootPart"); humanoid=newChar:WaitForChild("Humanoid")
     applyJump(); humanoid:GetPropertyChangedSignal("JumpPower"):Connect(applyJump); setupTpwalk(newChar)
@@ -1850,9 +2052,9 @@ player.CharacterAdded:Connect(function(newChar)
     notify("Respawn","Personagem recarregado!",2,C.accent_blue)
 end)
 
--- ════════════════════════════════════════════════════════════════
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
 -- LOADING SEQUENCE
--- ════════════════════════════════════════════════════════════════
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
 local function runLoadingSequence(onComplete)
     task.spawn(function()
         task.wait(0.2); tw(lsTitle,{TextTransparency=0},0.8); task.wait(0.3); tw(lsVer,{TextTransparency=0},0.8)
@@ -1880,6 +2082,12 @@ local function runLoadingSequence(onComplete)
         task.wait(0.65); loadScreen.Visible=false; onComplete()
     end)
 end
+
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- INICIALIZAรรO
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- Carrega itens salvos na lista ao iniciar
+rebuildItemsList()
 
 runLoadingSequence(function()
     task.spawn(function()
