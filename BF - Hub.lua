@@ -2,6 +2,7 @@
 -- AutoCollect | AutoBuy | AutoCash | Config | Rebirth
 -- v2.5: Aba Rebirth integrada nativamente (manual + auto + contador)
 -- FIX: preset agora salva/carrega estado do toggle AutoRebirth
+-- NEW: Quantidade por item no AutoBuy + delay livre
 
 local TweenService     = game:GetService("TweenService")
 local Players          = game:GetService("Players")
@@ -15,22 +16,13 @@ local character = player.Character or player.CharacterAdded:Wait()
 local hrp       = character:WaitForChild("HumanoidRootPart")
 local humanoid  = character:WaitForChild("Humanoid")
 
--- ════════════════════════════════════════════════════════════════
--- STATE
--- ════════════════════════════════════════════════════════════════
 local tpwalkSpeed    = 80
 local jpower         = 110
 local infJumpEnabled = false
 local antiAfkEnabled = false
 
--- ════════════════════════════════════════════════════════════════
--- BRIDGE GLOBAL: expoe estado do Rebirth para presets
--- ════════════════════════════════════════════════════════════════
 _G._BFHub_RebirthState = { enabled = false, start = nil, stop = nil }
 
--- ════════════════════════════════════════════════════════════════
--- SAVE / LOAD GERAL
--- ════════════════════════════════════════════════════════════════
 local SAVE_FILE_AUTOBUY  = "drhub_autobuy.txt"
 local SAVE_FILE_SETTINGS = "drhub_settings.txt"
 local PROFILES_FILE      = "drhub_profiles.json"
@@ -77,9 +69,6 @@ local function loadAutoload()
     return nil
 end
 
--- ════════════════════════════════════════════════════════════════
--- REBIRTH SAVE
--- ════════════════════════════════════════════════════════════════
 local rebirthData = { delay = 5, targetCount = 0, totalDone = 0 }
 local function saveRebirthData()
     pcall(function() writefile(REBIRTH_SAVE, HttpService:JSONEncode(rebirthData)) end)
@@ -97,9 +86,6 @@ local function loadRebirthData()
 end
 loadRebirthData()
 
--- ════════════════════════════════════════════════════════════════
--- PROFILE SYSTEM
--- ════════════════════════════════════════════════════════════════
 local ProfileSystem = { profiles = {}, currentProfile = "Default" }
 function ProfileSystem:save()
     pcall(function() writefile(PROFILES_FILE, HttpService:JSONEncode(self.profiles)) end)
@@ -142,9 +128,6 @@ end
 ProfileSystem:load()
 if not ProfileSystem.profiles["Default"] then ProfileSystem:createProfile("Default") end
 
--- ════════════════════════════════════════════════════════════════
--- PALETA
--- ════════════════════════════════════════════════════════════════
 local C = {
     bg_dark       = Color3.fromRGB(16,16,28),
     bg_card       = Color3.fromRGB(28,28,46),
@@ -166,9 +149,6 @@ local C = {
     off_color     = Color3.fromRGB(200,50,70),
 }
 
--- ════════════════════════════════════════════════════════════════
--- HELPERS TWEEN
--- ════════════════════════════════════════════════════════════════
 local function tw(obj, props, t, style, dir)
     TweenService:Create(obj, TweenInfo.new(t or 0.3, style or Enum.EasingStyle.Quad, dir or Enum.EasingDirection.Out), props):Play()
 end
@@ -197,16 +177,10 @@ local function addRipple(button)
     end)
 end
 
--- ════════════════════════════════════════════════════════════════
--- TAMANHO
--- ════════════════════════════════════════════════════════════════
 local vp    = workspace.CurrentCamera.ViewportSize
 local HUB_W = math.min(460, vp.X - 40)
 local HUB_H = math.min(560, vp.Y - 80)
 
--- ════════════════════════════════════════════════════════════════
--- SCREEN GUI
--- ════════════════════════════════════════════════════════════════
 local screenGui = Instance.new("ScreenGui", playerGui)
 screenGui.Name           = "BFHub"
 screenGui.ResetOnSpawn   = false
@@ -823,17 +797,32 @@ local function loadAutoBuyItemsFull()
     if not ok or not data or data == "" then return {} end
     local items = {}
     for line in data:gmatch("[^\n]+") do
-        local name, flex = line:match("^(.+)|([01])$")
-        if name then table.insert(items, {name=name, flex=(flex=="1")})
-        else local plain = line:match("^%s*(.-)%s*$"); if plain ~= "" then table.insert(items, {name=plain, flex=true}) end end
+        -- formato novo: nome|flex|qty
+        local name, flex, qty = line:match("^(.+)|([01])|(%d+)$")
+        if name then
+            table.insert(items, {name=name, flex=(flex=="1"), qty=tonumber(qty) or 0})
+        else
+            -- formato antigo: nome|flex
+            local name2, flex2 = line:match("^(.+)|([01])$")
+            if name2 then
+                table.insert(items, {name=name2, flex=(flex2=="1"), qty=0})
+            else
+                local plain = line:match("^%s*(.-)%s*$")
+                if plain ~= "" then table.insert(items, {name=plain, flex=true, qty=0}) end
+            end
+        end
     end
     return items
 end
+
 local function saveAutoBuyItemsFull(items)
     local lines = {}
-    for _,it in ipairs(items) do table.insert(lines, it.name.."|"..(it.flex and "1" or "0")) end
+    for _,it in ipairs(items) do
+        table.insert(lines, it.name.."|"..(it.flex and "1" or "0").."|"..tostring(it.qty or 0))
+    end
     pcall(function() writefile(SAVE_FILE_AUTOBUY, table.concat(lines,"\n")) end)
 end
+
 local function tokenize(str)
     local t = {}; for tok in str:lower():gmatch("%S+") do t[#t+1] = tok end; return t
 end
@@ -877,8 +866,10 @@ local function resolveItemName(entry)
 end
 
 local abClick,abUpdateVis,abGetEnabled,abSetEnabled = makeToggleCard(buyFrame,"AutoBuy","[B]",C.accent_gold,1)
+
+-- Delay box — aceita qualquer valor >= 0
 buyDelayBox,_ = makeInputField(buyFrame,"Delay entre compras (seg)",buyDelay,C.accent_gold,function(val)
-    local n=tonumber(val); if n and n>=0.05 then buyDelay=n; savedSettings["buy_delay"]=n; saveSettings(savedSettings)
+    local n=tonumber(val); if n and n>=0 then buyDelay=n; savedSettings["buy_delay"]=n; saveSettings(savedSettings)
         if buyDelayRef then buyDelayRef.Text=tostring(n) end end
 end)
 buyDelayBox.Parent.LayoutOrder = 2
@@ -904,16 +895,35 @@ local function setAutoBuy(state)
     if state then
         autoBuyThread = task.spawn(function()
             local MerchantBuy = game:GetService("ReplicatedStorage").Remotes.MerchantBuy
-            local MIN_DELAY = 1.0
+            -- contadores individuais por item (referencia da entry)
+            local itemCounts = {}
             while autoBuyEnabled do
                 if #autoBuyItems == 0 then task.wait(2); continue end
                 for _, entry in ipairs(autoBuyItems) do
                     if not autoBuyEnabled then break end
+                    local qty = entry.qty or 0
+                    -- pula se atingiu o limite desse item
+                    if qty > 0 and (itemCounts[entry] or 0) >= qty then continue end
                     local realName = resolveItemName(entry)
                     if getStock(realName) == 0 then continue end
-                    MerchantBuy:FireServer(realName); task.wait(math.max(buyDelay, MIN_DELAY))
+                    MerchantBuy:FireServer(realName)
+                    if qty > 0 then
+                        itemCounts[entry] = (itemCounts[entry] or 0) + 1
+                    end
+                    task.wait(buyDelay) -- sem MIN_DELAY, aceita 0.0001
                 end
-                task.wait(0.5)
+                -- verifica se todos os itens com limite foram atingidos
+                local allDone = true
+                for _, entry in ipairs(autoBuyItems) do
+                    local qty = entry.qty or 0
+                    if qty == 0 then allDone = false; break end
+                    if (itemCounts[entry] or 0) < qty then allDone = false; break end
+                end
+                if allDone and #autoBuyItems > 0 then
+                    notify("AutoBuy","Todos os limites atingidos! Parando.",3,C.accent_gold)
+                    task.wait(0.1); setAutoBuy(false); return
+                end
+                task.wait(0.1)
             end
         end)
         notify("AutoBuy","Comprando itens!",2,C.accent_gold)
@@ -925,7 +935,9 @@ end
 abClick.MouseButton1Click:Connect(function() setAutoBuy(not autoBuyEnabled) end)
 abSyncFn = function(v) setAutoBuy(v) end
 
--- Card itens salvos
+-- ════════════════════════════════════════════════════════════════
+-- CARD ITENS SALVOS
+-- ════════════════════════════════════════════════════════════════
 local itemsCard = makeCard(buyFrame, 80, 3)
 local ics = itemsCard:FindFirstChildWhichIsA("UIStroke"); if ics then tw(ics,{Color=C.accent_gold},0) end
 local itemsLbl = Instance.new("TextLabel",itemsCard)
@@ -948,6 +960,9 @@ itemsLayout2:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     itemsCard.Size = UDim2.new(1,-6,0,math.max(80,h+46)); itemsScroll.Size = UDim2.new(1,-16,0,math.min(h,140))
 end)
 
+-- ════════════════════════════════════════════════════════════════
+-- addItemTag — com campo qty por item
+-- ════════════════════════════════════════════════════════════════
 local suggestCard, suggestScroll, selectedSuggestions, addBtn = nil, nil, {}, nil
 local function closeSuggestions()
     if suggestCard then suggestCard.Visible=false; suggestCard.Size=UDim2.new(1,-6,0,0) end
@@ -956,33 +971,79 @@ local function closeSuggestions()
 end
 
 local function addItemTag(entry)
+    if not entry.qty then entry.qty = 0 end
     local name = entry.name
     local tag = Instance.new("Frame", itemsScroll)
     tag.Size = UDim2.new(1,0,0,30); tag.BackgroundColor3 = Color3.fromRGB(26,26,44); tag.BorderSizePixel = 0
     Instance.new("UICorner",tag).CornerRadius = UDim.new(0,8); addStroke(tag, C.border_dim, 1, 0.4)
+
+    -- Nome
     local tagLbl = Instance.new("TextLabel",tag)
-    tagLbl.Size = UDim2.new(1,-110,1,0); tagLbl.Position = UDim2.new(0,8,0,0)
+    tagLbl.Size = UDim2.new(1,-176,1,0); tagLbl.Position = UDim2.new(0,8,0,0)
     tagLbl.BackgroundTransparency = 1; tagLbl.Text = name; tagLbl.TextColor3 = C.accent_gold
-    tagLbl.TextSize = 12; tagLbl.Font = Enum.Font.GothamBold; tagLbl.TextXAlignment = Enum.TextXAlignment.Left; tagLbl.ClipsDescendants = true
+    tagLbl.TextSize = 12; tagLbl.Font = Enum.Font.GothamBold
+    tagLbl.TextXAlignment = Enum.TextXAlignment.Left; tagLbl.ClipsDescendants = true
+
+    -- Botao Flex/Exato
     local modeBtn = Instance.new("TextButton",tag)
-    modeBtn.Size = UDim2.new(0,58,0,22); modeBtn.Position = UDim2.new(1,-86,0.5,-11)
-    modeBtn.BorderSizePixel = 0; modeBtn.Font = Enum.Font.GothamBold; modeBtn.TextSize = 10
-    Instance.new("UICorner",modeBtn).CornerRadius = UDim.new(0,6); addRipple(modeBtn)
+    modeBtn.Size = UDim2.new(0,46,0,20); modeBtn.Position = UDim2.new(1,-170,0.5,-10)
+    modeBtn.BorderSizePixel = 0; modeBtn.Font = Enum.Font.GothamBold; modeBtn.TextSize = 9
+    Instance.new("UICorner",modeBtn).CornerRadius = UDim.new(0,5); addRipple(modeBtn)
     local function updateModeBtn()
-        if entry.flex then modeBtn.Text="Flex"; modeBtn.TextColor3=C.text_white; modeBtn.BackgroundColor3=Color3.fromRGB(30,80,180)
+        if entry.flex then
+            modeBtn.Text="Flex"; modeBtn.TextColor3=C.text_white
+            modeBtn.BackgroundColor3=Color3.fromRGB(30,80,180)
             local s=modeBtn:FindFirstChildWhichIsA("UIStroke"); if s then s.Color=C.accent_blue end
-        else modeBtn.Text="Exato"; modeBtn.TextColor3=C.text_white; modeBtn.BackgroundColor3=Color3.fromRGB(150,70,10)
-            local s=modeBtn:FindFirstChildWhichIsA("UIStroke"); if s then s.Color=C.accent_gold end end
+        else
+            modeBtn.Text="Exato"; modeBtn.TextColor3=C.text_white
+            modeBtn.BackgroundColor3=Color3.fromRGB(150,70,10)
+            local s=modeBtn:FindFirstChildWhichIsA("UIStroke"); if s then s.Color=C.accent_gold end
+        end
     end
     addStroke(modeBtn, C.accent_blue, 1, 0.3); updateModeBtn()
     modeBtn.MouseButton1Click:Connect(function()
-        entry.flex=not entry.flex; updateModeBtn(); saveAutoBuyItemsFull(autoBuyItems)
-        tweenBounce(modeBtn,{TextSize=12},0.12); task.wait(0.25); tw(modeBtn,{TextSize=10},0.15)
+        entry.flex = not entry.flex; updateModeBtn(); saveAutoBuyItemsFull(autoBuyItems)
+        tweenBounce(modeBtn,{TextSize=11},0.12); task.wait(0.25); tw(modeBtn,{TextSize=9},0.15)
     end)
+
+    -- Label "x" hint
+    local qtyLbl = Instance.new("TextLabel",tag)
+    qtyLbl.Size = UDim2.new(0,12,0,20); qtyLbl.Position = UDim2.new(1,-120,0.5,-10)
+    qtyLbl.BackgroundTransparency = 1; qtyLbl.Text = "x"
+    qtyLbl.TextColor3 = C.text_muted; qtyLbl.Font = Enum.Font.GothamBold; qtyLbl.TextSize = 10
+
+    -- Campo quantidade (0 = infinito)
+    local qtyBox = Instance.new("TextBox",tag)
+    qtyBox.Size = UDim2.new(0,42,0,20); qtyBox.Position = UDim2.new(1,-106,0.5,-10)
+    qtyBox.BackgroundColor3 = Color3.fromRGB(18,18,34); qtyBox.BorderSizePixel = 0
+    qtyBox.Text = tostring(entry.qty); qtyBox.TextColor3 = C.accent_cyan
+    qtyBox.PlaceholderText = "0"; qtyBox.PlaceholderColor3 = C.text_muted
+    qtyBox.Font = Enum.Font.GothamBold; qtyBox.TextSize = 11
+    qtyBox.TextXAlignment = Enum.TextXAlignment.Center; qtyBox.ClearTextOnFocus = false
+    Instance.new("UICorner",qtyBox).CornerRadius = UDim.new(0,5)
+    local qtyStroke = addStroke(qtyBox, C.border_dim, 1, 0.3)
+    qtyBox.Focused:Connect(function()
+        tw(qtyStroke,{Color=C.accent_cyan,Transparency=0},0.15)
+        tw(qtyBox,{BackgroundColor3=Color3.fromRGB(22,22,44)},0.15)
+    end)
+    qtyBox.FocusLost:Connect(function()
+        tw(qtyStroke,{Color=C.border_dim,Transparency=0.3},0.15)
+        tw(qtyBox,{BackgroundColor3=Color3.fromRGB(18,18,34)},0.15)
+        local v = tonumber(qtyBox.Text)
+        if v and v >= 0 then
+            entry.qty = math.floor(v); qtyBox.Text = tostring(entry.qty)
+            saveAutoBuyItemsFull(autoBuyItems)
+        else
+            qtyBox.Text = tostring(entry.qty)
+        end
+    end)
+
+    -- Botao remover
     local removeBtn = Instance.new("TextButton",tag)
     removeBtn.Size = UDim2.new(0,22,0,22); removeBtn.Position = UDim2.new(1,-26,0.5,-11)
     removeBtn.BackgroundColor3 = Color3.fromRGB(160,40,50); removeBtn.BorderSizePixel = 0
-    removeBtn.Text = "x"; removeBtn.TextColor3 = C.text_white; removeBtn.TextSize = 13; removeBtn.Font = Enum.Font.GothamBold
+    removeBtn.Text = "x"; removeBtn.TextColor3 = C.text_white; removeBtn.TextSize = 13
+    removeBtn.Font = Enum.Font.GothamBold
     Instance.new("UICorner",removeBtn).CornerRadius = UDim.new(0,5); addRipple(removeBtn)
     removeBtn.MouseEnter:Connect(function() tw(removeBtn,{BackgroundColor3=Color3.fromRGB(210,60,70)},0.12) end)
     removeBtn.MouseLeave:Connect(function() tw(removeBtn,{BackgroundColor3=Color3.fromRGB(160,40,50)},0.12) end)
@@ -992,6 +1053,9 @@ local function addItemTag(entry)
     end)
 end
 
+-- ════════════════════════════════════════════════════════════════
+-- INPUT CARD (busca + salvar)
+-- ════════════════════════════════════════════════════════════════
 local inputCard = makeCard(buyFrame, 66, 4)
 local inputCardStroke = inputCard:FindFirstChildWhichIsA("UIStroke"); if inputCardStroke then tw(inputCardStroke,{Color=C.accent_gold},0) end
 local inputRow = Instance.new("Frame",inputCard)
@@ -1044,7 +1108,7 @@ local suggestLayout=Instance.new("UIListLayout",suggestScroll)
 suggestLayout.Padding=UDim.new(0,3); suggestLayout.SortOrder=Enum.SortOrder.LayoutOrder
 local suggestPad=Instance.new("UIPadding",suggestScroll)
 suggestPad.PaddingTop=UDim.new(0,2); suggestPad.PaddingBottom=UDim.new(0,2); suggestPad.PaddingLeft=UDim.new(0,2); suggestPad.PaddingRight=UDim.new(0,2)
-inputCard.LayoutOrder=4; suggestCard.LayoutOrder=5; itemsCard.LayoutOrder=6
+inputCard.LayoutOrder=4; suggestCard.LayoutOrder=5; itemsCard.LayoutOrder=3
 
 local wsNames = {}; local wsCacheTime = 0
 local function updateSuggestions(query)
@@ -1121,7 +1185,7 @@ addBtn.MouseButton1Click:Connect(function()
             local isDupe=false
             for _,v in ipairs(autoBuyItems) do if v.name==nm then isDupe=true; break end end
             if isDupe then duplicates+=1
-            else local entry={name=nm,flex=addFlexMode}; table.insert(autoBuyItems,entry); addItemTag(entry); added+=1 end
+            else local entry={name=nm,flex=addFlexMode,qty=0}; table.insert(autoBuyItems,entry); addItemTag(entry); added+=1 end
         end
         saveAutoBuyItemsFull(autoBuyItems); textBox.Text=""; closeSuggestions()
         if added > 0 then
@@ -1133,7 +1197,7 @@ addBtn.MouseButton1Click:Connect(function()
         for _,v in ipairs(autoBuyItems) do
             if v.name==name then tweenBounce(textBox,{BackgroundColor3=Color3.fromRGB(60,20,20)},0.1); task.wait(0.4); tw(textBox,{BackgroundColor3=C.bg_input},0.3); return end
         end
-        local entry={name=name,flex=addFlexMode}; table.insert(autoBuyItems,entry); saveAutoBuyItemsFull(autoBuyItems); addItemTag(entry)
+        local entry={name=name,flex=addFlexMode,qty=0}; table.insert(autoBuyItems,entry); saveAutoBuyItemsFull(autoBuyItems); addItemTag(entry)
         textBox.Text=""; closeSuggestions()
         tweenBounce(addBtn,{TextSize=14},0.15); task.wait(0.3); tw(addBtn,{TextSize=12},0.2)
         notify("AutoBuy","["..(addFlexMode and "Flex" or "Exato").."] "..name,2,C.accent_gold)
@@ -1141,8 +1205,10 @@ addBtn.MouseButton1Click:Connect(function()
 end)
 for _,entry in ipairs(autoBuyItems) do addItemTag(entry) end
 
+-- ════════════════════════════════════════════════════════════════
 -- DEBUG CARD
-local debugCard = makeCard(buyFrame, 90, 7)
+-- ════════════════════════════════════════════════════════════════
+local debugCard = makeCard(buyFrame, 90, 6)
 local dcs = debugCard:FindFirstChildWhichIsA("UIStroke"); if dcs then tw(dcs,{Color=C.accent_purple},0) end
 local debugHeader = Instance.new("TextLabel",debugCard)
 debugHeader.Size=UDim2.new(1,-16,0,20); debugHeader.Position=UDim2.new(0,10,0,5)
@@ -1208,7 +1274,7 @@ cashClick.MouseButton1Click:Connect(function() setAutoCash(not autoCashEnabled) 
 cashSyncFn = function(v) setAutoCash(v) end
 
 -- ════════════════════════════════════════════════════════════════
--- getCurrentData / applyProfileData (incluindo autoRebirthEnabled)
+-- getCurrentData / applyProfileData
 -- ════════════════════════════════════════════════════════════════
 local function getCurrentData()
     return {
@@ -1222,7 +1288,6 @@ local function getCurrentData()
         autoCollectEnabled = autoCollectEnabled,
         autoBuyEnabled     = autoBuyEnabled,
         autoCashEnabled    = autoCashEnabled,
-        -- v2.5 fix: salva estado do Auto Rebirth via bridge global
         autoRebirthEnabled = (_G._BFHub_RebirthState and _G._BFHub_RebirthState.enabled) or false,
     }
 end
@@ -1237,8 +1302,11 @@ local function applyProfileData(data)
     if data.autoBuyItems then
         local converted = {}
         for _,v in ipairs(data.autoBuyItems) do
-            if type(v)=="string" then table.insert(converted,{name=v,flex=true})
-            else table.insert(converted,{name=v.name or v,flex=v.flex~=false}) end
+            if type(v)=="string" then
+                table.insert(converted,{name=v,flex=true,qty=0})
+            else
+                table.insert(converted,{name=v.name or v,flex=v.flex~=false,qty=tonumber(v.qty) or 0})
+            end
         end
         autoBuyItems=converted; saveAutoBuyItemsFull(autoBuyItems)
         for _,c in ipairs(itemsScroll:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
@@ -1247,8 +1315,6 @@ local function applyProfileData(data)
     if data.autoCollectEnabled~=nil then acSyncFn(data.autoCollectEnabled==true) end
     if data.autoBuyEnabled~=nil     then abSyncFn(data.autoBuyEnabled==true) end
     if data.autoCashEnabled~=nil    then cashSyncFn(data.autoCashEnabled==true) end
-
-    -- v2.5 fix: aplica estado do Auto Rebirth via bridge global
     if data.autoRebirthEnabled ~= nil then
         local rb = _G._BFHub_RebirthState
         if rb then
@@ -1259,7 +1325,6 @@ local function applyProfileData(data)
             end
         end
     end
-
     if currentProfLbl then currentProfLbl.Text="Ativo: "..ProfileSystem.currentProfile end
     notify("Preset","Perfil '"..ProfileSystem.currentProfile.."' carregado!",2,C.accent_gold)
 end
@@ -1294,9 +1359,6 @@ local function makeConfigToggle(parent, label, icon, initial, order, color, onCh
     return upd2
 end
 
--- ════════════════════════════════════════════════════════════════
--- ANTIAFK
--- ════════════════════════════════════════════════════════════════
 local _afkBtnRef = nil
 local function activateAntiAFK(btnRef)
     if antiAfkEnabled then return end
@@ -1490,7 +1552,6 @@ local function buildConfigTab()
     end
     updProfList()
 
-    -- TPWALK
     local twCard = makeCard(configFrame,62,2); local twStroke = twCard:FindFirstChildWhichIsA("UIStroke"); if twStroke then tw(twStroke,{Color=C.accent_blue},0) end
     local twLabel=Instance.new("TextLabel",twCard)
     twLabel.Size=UDim2.new(1,-16,0,20); twLabel.Position=UDim2.new(0,12,0,6); twLabel.BackgroundTransparency=1
@@ -1510,7 +1571,6 @@ local function buildConfigTab()
         else tpwalkInputRef.Text=tostring(tpwalkSpeed) end
     end)
 
-    -- JUMP POWER
     local jpCard=makeCard(configFrame,62,3); local jpStroke=jpCard:FindFirstChildWhichIsA("UIStroke"); if jpStroke then tw(jpStroke,{Color=C.accent_cyan},0) end
     local jpLabel=Instance.new("TextLabel",jpCard)
     jpLabel.Size=UDim2.new(1,-16,0,20); jpLabel.Position=UDim2.new(0,12,0,6); jpLabel.BackgroundTransparency=1
@@ -1530,13 +1590,11 @@ local function buildConfigTab()
         else jumpInputRef.Text=tostring(jpower) end
     end)
 
-    -- INFJUMP
     local ijUpd = makeConfigToggle(configFrame,"InfJump","[^]",infJumpEnabled,4,C.accent_cyan,function(v)
         infJumpEnabled=v; notify(v and "InfJump ON" or "InfJump OFF","",2,v and C.accent_cyan or C.off_color)
     end)
     infJumpSyncFn=function(v) infJumpEnabled=v; ijUpd(v) end
 
-    -- ANTIAFK
     local afkCard=makeCard(configFrame,52,5); local afkS=afkCard:FindFirstChildWhichIsA("UIStroke"); if afkS then tw(afkS,{Color=C.accent_purple},0) end
     local afkBtn=Instance.new("TextButton",afkCard)
     afkBtn.Size=UDim2.new(1,-16,0,38); afkBtn.Position=UDim2.new(0,8,0,7)
@@ -1550,7 +1608,6 @@ local function buildConfigTab()
         else notify("AntiAFK","Ja esta ativo!",2,C.accent_orange) end
     end)
 
-    -- DELAYS
     local delayCard=makeCard(configFrame,130,6); local ds=delayCard:FindFirstChildWhichIsA("UIStroke"); if ds then tw(ds,{Color=C.accent_purple},0) end
     local delayHeader=Instance.new("TextLabel",delayCard)
     delayHeader.Size=UDim2.new(1,-16,0,20); delayHeader.Position=UDim2.new(0,12,0,6); delayHeader.BackgroundTransparency=1
@@ -1572,14 +1629,14 @@ local function buildConfigTab()
     collectDelayRef=makeDelayInput(delayCard,"Collect",C.accent_green,30,collectDelay,function(b)
         local n=tonumber(b.Text); if n and n>=0 then collectDelay=n; collectDelayBox.Text=tostring(n); savedSettings["collect_delay"]=n; saveSettings(savedSettings) else b.Text=tostring(collectDelay) end
     end)
+    -- Buy delay sem restricao de minimo
     buyDelayRef=makeDelayInput(delayCard,"Buy",C.accent_gold,62,buyDelay,function(b)
-        local n=tonumber(b.Text); if n and n>=0.05 then buyDelay=n; buyDelayBox.Text=tostring(n); savedSettings["buy_delay"]=n; saveSettings(savedSettings) else b.Text=tostring(buyDelay) end
+        local n=tonumber(b.Text); if n and n>=0 then buyDelay=n; buyDelayBox.Text=tostring(n); savedSettings["buy_delay"]=n; saveSettings(savedSettings) else b.Text=tostring(buyDelay) end
     end)
     cashDelayRef=makeDelayInput(delayCard,"Cash",C.accent_cyan,94,cashDelay,function(b)
         local n=tonumber(b.Text); if n and n>0 then cashDelay=n; cashDelayBox.Text=tostring(n); savedSettings["cash_delay"]=n; saveSettings(savedSettings) else b.Text=tostring(cashDelay) end
     end)
 
-    -- PARAR TUDO
     local stopCard=makeCard(configFrame,50,7)
     local stopBtn=Instance.new("TextButton",stopCard)
     stopBtn.Size=UDim2.new(1,-20,0,36); stopBtn.Position=UDim2.new(0,10,0,7)
@@ -1590,7 +1647,6 @@ local function buildConfigTab()
     stopBtn.MouseLeave:Connect(function() tw(stopBtn,{BackgroundTransparency=0.2,Size=UDim2.new(1,-20,0,36)},0.2) end)
     stopBtn.MouseButton1Click:Connect(function()
         setAutoCollect(false); setAutoBuy(false); setAutoCash(false); infJumpEnabled=false; ijUpd(false)
-        -- Para o Auto Rebirth tambem
         local rb = _G._BFHub_RebirthState
         if rb and rb.enabled and rb.stop then rb.stop() end
         tweenBounce(stopBtn,{BackgroundColor3=Color3.fromRGB(255,100,100)},0.1); task.wait(0.5); tw(stopBtn,{BackgroundColor3=C.accent_red},0.3)
@@ -1600,12 +1656,11 @@ end
 buildConfigTab()
 
 -- ════════════════════════════════════════════════════════════════
--- ABA REBIRTH (v2.5) — com bridge global para presets
+-- ABA REBIRTH
 -- ════════════════════════════════════════════════════════════════
 local function buildRebirthTab()
     local rebirthRemote = game:GetService("ReplicatedStorage").Remotes.Rebirth
 
-    -- ── Card 1: Botao Manual ──────────────────────────────────
     local manualCard = makeCard(rebirthFrame, 72, 1)
     local mcs = manualCard:FindFirstChildWhichIsA("UIStroke"); if mcs then tw(mcs,{Color=C.accent_orange},0) end
     local manualHeader = Instance.new("TextLabel", manualCard)
@@ -1620,7 +1675,6 @@ local function buildRebirthTab()
     manualBtn.MouseEnter:Connect(function() tw(manualBtn,{BackgroundColor3=Color3.fromRGB(140,70,20),BackgroundTransparency=0},0.18) end)
     manualBtn.MouseLeave:Connect(function() tw(manualBtn,{BackgroundColor3=Color3.fromRGB(100,50,15),BackgroundTransparency=0.1},0.18) end)
 
-    -- ── Card 2: Auto Rebirth toggle + delay inline ────────────
     local autoCard = makeCard(rebirthFrame, 96, 2)
     local acs2 = autoCard:FindFirstChildWhichIsA("UIStroke"); if acs2 then tw(acs2,{Color=C.accent_orange},0) end
     local autoIcon = Instance.new("TextLabel", autoCard)
@@ -1636,16 +1690,12 @@ local function buildRebirthTab()
     local rbKnob = Instance.new("Frame", rbTrack)
     rbKnob.Size=UDim2.new(0,24,0,24); rbKnob.Position=UDim2.new(0,3,0,3)
     rbKnob.BackgroundColor3=C.text_white; rbKnob.BorderSizePixel=0; Instance.new("UICorner",rbKnob).CornerRadius=UDim.new(1,0)
-
     local rbSep = Instance.new("Frame", autoCard)
-    rbSep.Size=UDim2.new(1,-20,0,1); rbSep.Position=UDim2.new(0,10,0,50)
-    rbSep.BackgroundColor3=C.border_dim; rbSep.BorderSizePixel=0
-
+    rbSep.Size=UDim2.new(1,-20,0,1); rbSep.Position=UDim2.new(0,10,0,50); rbSep.BackgroundColor3=C.border_dim; rbSep.BorderSizePixel=0
     local delayRowLbl = Instance.new("TextLabel", autoCard)
     delayRowLbl.Size=UDim2.new(0.5,0,0,22); delayRowLbl.Position=UDim2.new(0,12,0,58)
     delayRowLbl.BackgroundTransparency=1; delayRowLbl.Text="Delay (seg)"
     delayRowLbl.TextColor3=C.accent_orange; delayRowLbl.Font=Enum.Font.GothamBold; delayRowLbl.TextSize=12; delayRowLbl.TextXAlignment=Enum.TextXAlignment.Left
-
     local delayBox = Instance.new("TextBox", autoCard)
     delayBox.Size=UDim2.new(0.38,-6,0,22); delayBox.Position=UDim2.new(0.58,0,0,58)
     delayBox.BackgroundColor3=C.bg_input; delayBox.BorderSizePixel=0
@@ -1660,12 +1710,10 @@ local function buildRebirthTab()
         if v and v>=1 then rebirthData.delay=v; saveRebirthData(); notify("Auto Rebirth","Delay: "..v.."s",2,C.accent_orange)
         else delayBox.Text=tostring(rebirthData.delay) end
     end)
-
     local rbToggleBtn = Instance.new("TextButton", autoCard)
     rbToggleBtn.Size=UDim2.new(1,0,0,50); rbToggleBtn.Position=UDim2.new(0,0,0,0)
     rbToggleBtn.BackgroundTransparency=1; rbToggleBtn.Text=""; rbToggleBtn.ZIndex=5; addRipple(rbToggleBtn)
 
-    -- ── Card 3: Alvo ──────────────────────────────────────────
     local cfgCard = makeCard(rebirthFrame, 54, 3)
     local cfgS = cfgCard:FindFirstChildWhichIsA("UIStroke"); if cfgS then tw(cfgS,{Color=C.accent_gold},0) end
     local targetLbl = Instance.new("TextLabel", cfgCard)
@@ -1687,7 +1735,6 @@ local function buildRebirthTab()
         else targetBox.Text=tostring(rebirthData.targetCount) end
     end)
 
-    -- ── Card 4: Contador ──────────────────────────────────────
     local statCard = makeCard(rebirthFrame, 72, 4)
     local statS = statCard:FindFirstChildWhichIsA("UIStroke"); if statS then tw(statS,{Color=C.accent_gold},0) end
     local statHeader = Instance.new("TextLabel", statCard)
@@ -1708,28 +1755,23 @@ local function buildRebirthTab()
         notify("Rebirth","Contador zerado.",2,C.accent_red)
     end)
 
-    -- ── Logica Auto Rebirth ───────────────────────────────────
     local rbEnabled = false; local rbThread = nil; local sessionCount = 0
-
     local function updateRbToggle(state)
         tw(rbTrack,{BackgroundColor3=state and C.accent_orange or C.off_color},0.25)
         TweenService:Create(rbKnob,TweenInfo.new(0.3,Enum.EasingStyle.Back,Enum.EasingDirection.Out),
             {Position=state and UDim2.new(1,-27,0,3) or UDim2.new(0,3,0,3)}):Play()
         autoIcon.TextColor3=state and C.accent_orange or C.text_muted
         if acs2 then tw(acs2,{Color=state and C.accent_orange or C.border_dim},0.25) end
-        -- sincroniza bridge global
         _G._BFHub_RebirthState.enabled = state
     end
-
     local function stopRb()
         rbEnabled=false
         if rbThread then task.cancel(rbThread); rbThread=nil end
         updateRbToggle(false)
         notify("Auto Rebirth","Parado. Sessao: "..sessionCount.." rebirths.",3,C.accent_orange)
     end
-
     local function startRb()
-        if rbEnabled then return end  -- evita double-start vindo do preset
+        if rbEnabled then return end
         rbEnabled=true; sessionCount=0; updateRbToggle(true)
         notify("Auto Rebirth","Iniciado! Delay: "..rebirthData.delay.."s",2,C.accent_orange)
         rbThread=task.spawn(function()
@@ -1750,15 +1792,11 @@ local function buildRebirthTab()
             end
         end)
     end
-
-    -- Registra as funcoes na bridge global para acesso pelos presets
     _G._BFHub_RebirthState.start = startRb
     _G._BFHub_RebirthState.stop  = stopRb
-
     rbToggleBtn.MouseButton1Click:Connect(function()
         if rbEnabled then stopRb() else startRb() end
     end)
-
     manualBtn.MouseButton1Click:Connect(function()
         local ok = pcall(function() rebirthRemote:FireServer() end)
         if ok then
@@ -1774,7 +1812,7 @@ end
 buildRebirthTab()
 
 -- ════════════════════════════════════════════════════════════════
--- LOGICA: TPWALK
+-- TPWALK
 -- ════════════════════════════════════════════════════════════════
 local tpwalkConn = nil
 local function setupTpwalk(char)
@@ -1787,7 +1825,7 @@ end
 setupTpwalk(character)
 
 -- ════════════════════════════════════════════════════════════════
--- LOGICA: JUMP POWER + INFJUMP
+-- JUMP POWER + INFJUMP
 -- ════════════════════════════════════════════════════════════════
 local function applyJump()
     if humanoid.UseJumpPower then humanoid.JumpPower=jpower else humanoid.JumpHeight=jpower end
@@ -1856,13 +1894,7 @@ runLoadingSequence(function()
         syncGlows(); task.wait(0.5)
         tw(mainStroke,{Transparency=0.7},0.2); task.wait(0.2); tw(mainStroke,{Transparency=0},0.3)
         notify("Build a Bamboo Factory Hub","v2.5 carregado!",3,C.accent_green)
-
-        -- AntiAFK automatico ao carregar
-        task.delay(1.5, function()
-            activateAntiAFK(nil)
-        end)
-
-        -- Autoload
+        task.delay(1.5, function() activateAntiAFK(nil) end)
         task.delay(0.6, function()
             local alName = loadAutoload()
             if alName and ProfileSystem.profiles[alName] then
