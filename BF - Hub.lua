@@ -4,6 +4,7 @@
 -- FIX: preset agora salva/carrega estado do toggle AutoRebirth
 -- NEW: Quantidade por item no AutoBuy + delay livre
 -- NEW: Drag and Drop com prioridade (1ยบ, 2ยบ...) no AutoBuy
+-- FIX: AutoBuy agora busca itens somente em Tycoons[nearest].Placements
 
 local TweenService     = game:GetService("TweenService")
 local Players          = game:GetService("Players")
@@ -791,7 +792,7 @@ acClick.MouseButton1Click:Connect(function() setAutoCollect(not autoCollectEnabl
 acSyncFn = function(v) setAutoCollect(v) end
 
 -- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
--- AUTOBUY โ€” helpers de dados
+-- AUTOBUY โ€“ helpers de dados
 -- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
 local function loadAutoBuyItemsFull()
     local ok, data = pcall(function() return readfile(SAVE_FILE_AUTOBUY) end)
@@ -834,34 +835,67 @@ local function fuzzyMatch(query, target)
     local tokens = tokenize(query); if #tokens == 0 then return true end
     return fuzzyMatchTokens(tokens, target)
 end
+
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- HELPER: tycoon mais prรณximo (reutilizado por AutoBuy)
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+local function getNearestTycoonForBuy()
+    local nearest, shortest = nil, math.huge
+    for _, t in ipairs(workspace.Tycoons:GetChildren()) do
+        local ref = t:FindFirstChildWhichIsA("BasePart", true)
+        if ref then
+            local d = (hrp.Position - ref.Position).Magnitude
+            if d < shortest then shortest = d; nearest = t end
+        end
+    end
+    return nearest
+end
+
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- scanWorkspaceNames โ€“ varre apenas Placements do tycoon mais prรณximo
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
 local function scanWorkspaceNames()
     local seen = {}; local names = {}
+    local nearest = getNearestTycoonForBuy()
+    local root = (nearest and nearest:FindFirstChild("Placements")) or workspace
     local function scan(obj, depth)
         if depth > 6 then return end
         for _, child in ipairs(obj:GetChildren()) do
             local n = child.Name
-            if not seen[n] and #n > 2 then seen[n]=true; table.insert(names,n) end
-            scan(child, depth+1)
+            if not seen[n] and #n > 2 then seen[n] = true; table.insert(names, n) end
+            scan(child, depth + 1)
         end
     end
-    scan(workspace, 0); table.sort(names); return names
+    scan(root, 0); table.sort(names); return names
 end
 
 local autoBuyItems = loadAutoBuyItemsFull()
 local autoBuyEnabled = false; local autoBuyThread = nil
 
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- resolveItemName โ€“ busca somente em Placements do tycoon mais prรณximo
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
 local function resolveItemName(entry)
     if entry.flex then
         local found = nil
-        local function search(obj, depth)
-            if depth > 6 or found then return end
-            for _, child in ipairs(obj:GetChildren()) do
-                if fuzzyMatch(entry.name, child.Name) then found = child.Name; return end
-                search(child, depth+1)
+        local nearest = getNearestTycoonForBuy()
+        if nearest then
+            local Placements = nearest:FindFirstChild("Placements")
+            if Placements then
+                local function search(obj, depth)
+                    if depth > 6 or found then return end
+                    for _, child in ipairs(obj:GetChildren()) do
+                        if fuzzyMatch(entry.name, child.Name) then found = child.Name; return end
+                        search(child, depth + 1)
+                    end
+                end
+                search(Placements, 0)
             end
         end
-        search(workspace, 0); return found or entry.name
-    else return entry.name end
+        return found or entry.name
+    else
+        return entry.name
+    end
 end
 
 local abClick,abUpdateVis,abGetEnabled,abSetEnabled = makeToggleCard(buyFrame,"AutoBuy","[B]",C.accent_gold,1)
@@ -935,7 +969,7 @@ local itemsCard = makeCard(buyFrame, 80, 3)
 local ics = itemsCard:FindFirstChildWhichIsA("UIStroke"); if ics then tw(ics,{Color=C.accent_gold},0) end
 local itemsLbl = Instance.new("TextLabel",itemsCard)
 itemsLbl.Size=UDim2.new(1,-16,0,20); itemsLbl.Position=UDim2.new(0,10,0,6)
-itemsLbl.BackgroundTransparency=1; itemsLbl.Text="Itens salvos (arraste โก para reordenar)"
+itemsLbl.BackgroundTransparency=1; itemsLbl.Text="Itens salvos (arraste โ ฟ para reordenar)"
 itemsLbl.TextColor3=C.accent_gold; itemsLbl.Font=Enum.Font.GothamBold; itemsLbl.TextSize=12; itemsLbl.TextXAlignment=Enum.TextXAlignment.Left
 local itemsScroll = Instance.new("ScrollingFrame",itemsCard)
 itemsScroll.Size=UDim2.new(1,-16,0,46); itemsScroll.Position=UDim2.new(0,8,0,28)
@@ -954,7 +988,7 @@ itemsLayout2:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 end)
 
 -- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
--- DRAG AND DROP โ€” estado global
+-- DRAG AND DROP โ€“ estado global
 -- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
 local dragState = {
     active     = false,
@@ -983,9 +1017,9 @@ local function badgeColor(idx)
 end
 
 -- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
--- rebuildItemsList โ€” constrรณi toda a lista respeitando autoBuyItems
+-- rebuildItemsList
 -- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
-local rebuildItemsList  -- forward declaration para uso recursivo interno
+local rebuildItemsList
 
 rebuildItemsList = function()
     for _, c in ipairs(itemsScroll:GetChildren()) do
@@ -1004,7 +1038,6 @@ rebuildItemsList = function()
         Instance.new("UICorner", tag).CornerRadius = UDim.new(0,9)
         local tagStroke = addStroke(tag, C.border_dim, 1, 0.4)
 
-        -- Badge de posiรงรฃo
         local badgeBg = Instance.new("Frame", tag)
         badgeBg.Size             = UDim2.new(0,26,0,26)
         badgeBg.Position         = UDim2.new(0,4,0.5,-13)
@@ -1021,18 +1054,16 @@ rebuildItemsList = function()
         badgeLbl.Font                   = Enum.Font.GothamBold
         badgeLbl.TextSize               = 10
 
-        -- Handle drag
         local handle = Instance.new("TextLabel", tag)
         handle.Size               = UDim2.new(0,14,1,0)
         handle.Position           = UDim2.new(0,32,0,0)
         handle.BackgroundTransparency = 1
-        handle.Text               = "โก"
+        handle.Text               = "โ ฟ"
         handle.TextColor3         = C.text_muted
         handle.Font               = Enum.Font.GothamBold
         handle.TextSize           = 16
         handle.ZIndex             = 4
 
-        -- Nome
         local tagLbl = Instance.new("TextLabel", tag)
         tagLbl.Size             = UDim2.new(1,-196,1,0)
         tagLbl.Position         = UDim2.new(0,50,0,0)
@@ -1044,7 +1075,6 @@ rebuildItemsList = function()
         tagLbl.TextXAlignment   = Enum.TextXAlignment.Left
         tagLbl.ClipsDescendants = true
 
-        -- Botรฃo Flex/Exato
         local modeBtn = Instance.new("TextButton", tag)
         modeBtn.Size            = UDim2.new(0,46,0,20)
         modeBtn.Position        = UDim2.new(1,-170,0.5,-10)
@@ -1070,7 +1100,6 @@ rebuildItemsList = function()
             tweenBounce(modeBtn,{TextSize=11},0.12); task.wait(0.25); tw(modeBtn,{TextSize=9},0.15)
         end)
 
-        -- Qty label + box
         local qtyLbl = Instance.new("TextLabel", tag)
         qtyLbl.Size               = UDim2.new(0,12,0,20)
         qtyLbl.Position           = UDim2.new(1,-120,0.5,-10)
@@ -1112,7 +1141,6 @@ rebuildItemsList = function()
             end
         end)
 
-        -- Botรฃo remover
         local removeBtn = Instance.new("TextButton", tag)
         removeBtn.Size             = UDim2.new(0,22,0,22)
         removeBtn.Position         = UDim2.new(1,-26,0.5,-11)
@@ -1131,7 +1159,6 @@ rebuildItemsList = function()
             saveAutoBuyItemsFull(autoBuyItems); rebuildItemsList()
         end)
 
-        -- โ”€โ”€ รrea de drag (sobre badge + handle) โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€
         local entryRef = entry
         local dragBtn  = Instance.new("TextButton", tag)
         dragBtn.Size               = UDim2.new(0,46,1,0)
@@ -1165,7 +1192,6 @@ rebuildItemsList = function()
             dragState.entry     = entryRef
             dragState.sourceIdx = srcIdx
 
-            -- Ghost flutuante
             local ghost = Instance.new("Frame", screenGui)
             ghost.Size             = UDim2.new(0, tag.AbsoluteSize.X, 0, 34)
             ghost.BackgroundColor3 = Color3.fromRGB(30,30,54)
@@ -1187,7 +1213,6 @@ rebuildItemsList = function()
             ghostLbl.TextXAlignment     = Enum.TextXAlignment.Left
             ghostLbl.ZIndex             = 5001
 
-            -- Posiรงรฃo inicial do ghost
             local mPos = input.Position
             ghost.Position = UDim2.new(0, mPos.X - ghost.AbsoluteSize.X/2, 0, mPos.Y - 17)
 
@@ -1196,10 +1221,10 @@ rebuildItemsList = function()
             tw(tag,  {BackgroundTransparency=0.6},0.1)
             tw(tagStroke, {Color=C.accent_gold, Transparency=0}, 0.15)
         end)
-    end -- fim for idx
-end -- fim rebuildItemsList
+    end
+end
 
--- โ”€โ”€ Heartbeat: move ghost + preview reorder โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€
+-- โ”€โ”€โ”€ Heartbeat: move ghost + preview reorder โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€
 UserInputService.InputChanged:Connect(function(input)
     if not dragState.active or not dragState.ghost then return end
     if input.UserInputType ~= Enum.UserInputType.MouseMovement
@@ -1211,7 +1236,6 @@ UserInputService.InputChanged:Connect(function(input)
         0, pos.Y - 17
     )
 
-    -- Calcula slot alvo
     local scrollAbs = itemsScroll.AbsolutePosition
     local relY      = pos.Y - scrollAbs.Y + itemsScroll.CanvasPosition.Y
     local slotH     = 34 + 4
@@ -1224,12 +1248,12 @@ UserInputService.InputChanged:Connect(function(input)
             local moved = table.remove(autoBuyItems, src)
             table.insert(autoBuyItems, targetIdx, moved)
             dragState.sourceIdx = targetIdx
-            rebuildItemsList() -- atualiza badges em tempo real
+            rebuildItemsList()
         end
     end
 end)
 
--- โ”€โ”€ Soltar: salva e limpa โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€
+-- โ”€โ”€โ”€ Soltar: salva e limpa โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€
 UserInputService.InputEnded:Connect(function(input)
     if not dragState.active then return end
     if input.UserInputType ~= Enum.UserInputType.MouseButton1
@@ -1245,7 +1269,7 @@ UserInputService.InputEnded:Connect(function(input)
     end
 
     cancelDrag()
-    rebuildItemsList() -- rebuild limpo (remove transparรชncia)
+    rebuildItemsList()
 end)
 
 -- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
@@ -2086,7 +2110,6 @@ end
 -- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
 -- INICIALIZAรรO
 -- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
--- Carrega itens salvos na lista ao iniciar
 rebuildItemsList()
 
 runLoadingSequence(function()
