@@ -5,6 +5,7 @@
 -- NEW: Quantidade por item no AutoBuy + delay livre
 -- NEW: Drag and Drop com prioridade (1ยบ, 2ยบ...) no AutoBuy
 -- FIX: AutoBuy agora busca itens somente em Tycoons[nearest].Placements
+-- NEW: AutoClose na aba Config (minimiza a cada 5s, salvo em presets)
 
 local TweenService     = game:GetService("TweenService")
 local Players          = game:GetService("Players")
@@ -105,7 +106,7 @@ function ProfileSystem:createProfile(name)
         tpwalkSpeed=80, jpower=110, infJumpEnabled=false,
         collectDelay=4.25, buyDelay=0.1, cashDelay=10, autoBuyItems={},
         autoCollectEnabled=false, autoBuyEnabled=false, autoCashEnabled=false,
-        autoRebirthEnabled=false,
+        autoRebirthEnabled=false, autoCloseEnabled=false,
     }
     self:save(); return true
 end
@@ -498,6 +499,8 @@ end)
 -- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
 -- MINIMIZAR / RESTAURAR
 -- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+local hubIsOpen = false  -- rastreia estado atual do hub
+
 local function hideHub()
     tw(mainFrame,{BackgroundTransparency=0.3},0.08); task.wait(0.08)
     tw(mainFrame,{BackgroundTransparency=0},0.08); task.wait(0.1)
@@ -508,6 +511,7 @@ local function hideHub()
     for _,g in ipairs(allGlows) do g.Visible=false end; mainStrokeGlowActive=false
     restoreBtn.Visible=true; restoreBtn.Size=UDim2.new(0,0,0,0); restoreBtn.Rotation=-180; glowPulseActive=true
     TweenService:Create(restoreBtn,TweenInfo.new(0.5,Enum.EasingStyle.Back,Enum.EasingDirection.Out),{Size=UDim2.new(0,55,0,55),Rotation=0}):Play()
+    hubIsOpen = false
 end
 local function showHub()
     glowPulseActive=false
@@ -521,9 +525,35 @@ local function showHub()
         local e=(i-1)*14+8; TweenService:Create(g,TweenInfo.new(0.55,Enum.EasingStyle.Back,Enum.EasingDirection.Out),{Size=UDim2.new(0,HUB_W+e,0,HUB_H+e)}):Play(); task.wait(0.04)
     end
     syncGlows()
+    hubIsOpen = true
 end
 minimizeBtn.MouseButton1Click:Connect(hideHub)
 restoreClick.MouseButton1Click:Connect(showHub)
+
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- AUTOCLOSE
+-- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+local autoCloseEnabled = false
+local autoCloseThread  = nil
+local AUTO_CLOSE_INTERVAL = 5  -- segundos
+
+local function stopAutoClose()
+    autoCloseEnabled = false
+    if autoCloseThread then task.cancel(autoCloseThread); autoCloseThread = nil end
+end
+
+local function startAutoClose()
+    if autoCloseEnabled then return end
+    autoCloseEnabled = true
+    autoCloseThread = task.spawn(function()
+        while autoCloseEnabled do
+            task.wait(AUTO_CLOSE_INTERVAL)
+            if autoCloseEnabled and hubIsOpen then
+                hideHub()
+            end
+        end
+    end)
+end
 
 -- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
 -- CONTENT + ABAS
@@ -708,6 +738,7 @@ local infJumpSyncFn  = function() end
 local acSyncFn       = function() end
 local abSyncFn       = function() end
 local cashSyncFn     = function() end
+local autoCloseSyncFn = function() end  -- NEW
 
 -- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
 -- AUTOCOLLECT
@@ -1049,7 +1080,7 @@ rebuildItemsList = function()
         local badgeLbl = Instance.new("TextLabel", badgeBg)
         badgeLbl.Size                   = UDim2.new(1,0,1,0)
         badgeLbl.BackgroundTransparency = 1
-        badgeLbl.Text                   = tostring(idx).."ยฐ"
+        badgeLbl.Text                   = tostring(idx).."ยบ"
         badgeLbl.TextColor3             = bc
         badgeLbl.Font                   = Enum.Font.GothamBold
         badgeLbl.TextSize               = 10
@@ -1206,7 +1237,7 @@ rebuildItemsList = function()
             ghostLbl.Size               = UDim2.new(1,-16,1,0)
             ghostLbl.Position           = UDim2.new(0,8,0,0)
             ghostLbl.BackgroundTransparency = 1
-            ghostLbl.Text               = tostring(srcIdx).."ยฐ  "..entryRef.name
+            ghostLbl.Text               = tostring(srcIdx).."ยบ  "..entryRef.name
             ghostLbl.TextColor3         = C.accent_gold
             ghostLbl.Font               = Enum.Font.GothamBold
             ghostLbl.TextSize           = 12
@@ -1516,6 +1547,7 @@ local function getCurrentData()
         autoBuyEnabled     = autoBuyEnabled,
         autoCashEnabled    = autoCashEnabled,
         autoRebirthEnabled = (_G._BFHub_RebirthState and _G._BFHub_RebirthState.enabled) or false,
+        autoCloseEnabled   = autoCloseEnabled,  -- NEW
     }
 end
 
@@ -1551,6 +1583,10 @@ local function applyProfileData(data)
                 if rb.stop and rb.enabled then rb.stop() end
             end
         end
+    end
+    -- NEW: restaura AutoClose do preset
+    if data.autoCloseEnabled ~= nil then
+        autoCloseSyncFn(data.autoCloseEnabled == true)
     end
     if currentProfLbl then currentProfLbl.Text="Ativo: "..ProfileSystem.currentProfile end
     notify("Preset","Perfil '"..ProfileSystem.currentProfile.."' carregado!",2,C.accent_gold)
@@ -1822,7 +1858,39 @@ local function buildConfigTab()
     end)
     infJumpSyncFn=function(v) infJumpEnabled=v; ijUpd(v) end
 
-    local afkCard=makeCard(configFrame,52,5); local afkS=afkCard:FindFirstChildWhichIsA("UIStroke"); if afkS then tw(afkS,{Color=C.accent_purple},0) end
+    -- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+    -- TOGGLE AUTOCLOSE (order=5, acima do AntiAFK)
+    -- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+    local acUpd = makeConfigToggle(configFrame,"AutoClose","[-]",autoCloseEnabled,5,C.accent_blue,function(v)
+        if v then
+            startAutoClose()
+            notify("AutoClose","Hub vai minimizar a cada "..AUTO_CLOSE_INTERVAL.."s!",3,C.accent_blue)
+        else
+            stopAutoClose()
+            notify("AutoClose","AutoClose desativado.",2,C.off_color)
+        end
+    end)
+    -- hint abaixo do toggle
+    do
+        local hint = makeCard(configFrame, 36, 6)
+        local hs = hint:FindFirstChildWhichIsA("UIStroke"); if hs then tw(hs,{Color=C.accent_blue},0) end
+        local hl = Instance.new("TextLabel", hint)
+        hl.Size=UDim2.new(1,-16,1,0); hl.Position=UDim2.new(0,10,0,0)
+        hl.BackgroundTransparency=1
+        hl.Text="Minimiza automaticamente a cada "..AUTO_CLOSE_INTERVAL.."s enquanto aberto"
+        hl.TextColor3=C.text_muted; hl.Font=Enum.Font.Gotham; hl.TextSize=10; hl.TextWrapped=true; hl.TextXAlignment=Enum.TextXAlignment.Left
+    end
+
+    autoCloseSyncFn = function(v)
+        autoCloseEnabled = false  -- reseta antes de aplicar
+        stopAutoClose()
+        if v then
+            startAutoClose()
+        end
+        acUpd(v)
+    end
+
+    local afkCard=makeCard(configFrame,52,7); local afkS=afkCard:FindFirstChildWhichIsA("UIStroke"); if afkS then tw(afkS,{Color=C.accent_purple},0) end
     local afkBtn=Instance.new("TextButton",afkCard)
     afkBtn.Size=UDim2.new(1,-16,0,38); afkBtn.Position=UDim2.new(0,8,0,7)
     afkBtn.BackgroundColor3=C.accent_purple; afkBtn.BackgroundTransparency=0.15; afkBtn.Text="[A]  Ativar AntiAFK"; afkBtn.TextColor3=C.text_white
@@ -1835,7 +1903,7 @@ local function buildConfigTab()
         else notify("AntiAFK","Ja esta ativo!",2,C.accent_orange) end
     end)
 
-    local delayCard=makeCard(configFrame,130,6); local ds=delayCard:FindFirstChildWhichIsA("UIStroke"); if ds then tw(ds,{Color=C.accent_purple},0) end
+    local delayCard=makeCard(configFrame,130,8); local ds=delayCard:FindFirstChildWhichIsA("UIStroke"); if ds then tw(ds,{Color=C.accent_purple},0) end
     local delayHeader=Instance.new("TextLabel",delayCard)
     delayHeader.Size=UDim2.new(1,-16,0,20); delayHeader.Position=UDim2.new(0,12,0,6); delayHeader.BackgroundTransparency=1
     delayHeader.Text="Delays das automacoes (segundos)"; delayHeader.TextColor3=C.accent_purple; delayHeader.Font=Enum.Font.GothamBold; delayHeader.TextSize=12; delayHeader.TextXAlignment=Enum.TextXAlignment.Left
@@ -1863,7 +1931,7 @@ local function buildConfigTab()
         local n=tonumber(b.Text); if n and n>0 then cashDelay=n; cashDelayBox.Text=tostring(n); savedSettings["cash_delay"]=n; saveSettings(savedSettings) else b.Text=tostring(cashDelay) end
     end)
 
-    local stopCard=makeCard(configFrame,50,7)
+    local stopCard=makeCard(configFrame,50,9)
     local stopBtn=Instance.new("TextButton",stopCard)
     stopBtn.Size=UDim2.new(1,-20,0,36); stopBtn.Position=UDim2.new(0,10,0,7)
     stopBtn.BackgroundColor3=C.accent_red; stopBtn.BackgroundTransparency=0.2; stopBtn.BorderSizePixel=0
@@ -1873,6 +1941,7 @@ local function buildConfigTab()
     stopBtn.MouseLeave:Connect(function() tw(stopBtn,{BackgroundTransparency=0.2,Size=UDim2.new(1,-20,0,36)},0.2) end)
     stopBtn.MouseButton1Click:Connect(function()
         setAutoCollect(false); setAutoBuy(false); setAutoCash(false); infJumpEnabled=false; ijUpd(false)
+        stopAutoClose(); acUpd(false)
         local rb = _G._BFHub_RebirthState
         if rb and rb.enabled and rb.stop then rb.stop() end
         tweenBounce(stopBtn,{BackgroundColor3=Color3.fromRGB(255,100,100)},0.1); task.wait(0.5); tw(stopBtn,{BackgroundColor3=C.accent_red},0.3)
@@ -2124,6 +2193,7 @@ runLoadingSequence(function()
         end
         syncGlows(); task.wait(0.5)
         tw(mainStroke,{Transparency=0.7},0.2); task.wait(0.2); tw(mainStroke,{Transparency=0},0.3)
+        hubIsOpen = true  -- hub comeรงa aberto apรณs loading
         notify("Build a Bamboo Factory Hub","v2.5 carregado!",3,C.accent_green)
         task.delay(1.5, function() activateAntiAFK(nil) end)
         task.delay(0.6, function()
