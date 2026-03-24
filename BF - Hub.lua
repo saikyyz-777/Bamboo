@@ -3,9 +3,10 @@
 -- v2.5: Aba Rebirth integrada nativamente (manual + auto + contador)
 -- FIX: preset agora salva/carrega estado do toggle AutoRebirth
 -- NEW: Quantidade por item no AutoBuy + delay livre
--- NEW: Drag and Drop com prioridade (1ยบ, 2ยบ...) no AutoBuy
+-- NEW: Drag and Drop com prioridade (1º, 2º...) no AutoBuy
 -- FIX: AutoBuy agora busca itens somente em Tycoons[nearest].Placements
 -- NEW: AutoClose na aba Config (minimiza a cada 5s, salvo em presets)
+-- NEW: Verificação de Place ID com tela de erro detalhada
 
 local TweenService     = game:GetService("TweenService")
 local Players          = game:GetService("Players")
@@ -18,6 +19,350 @@ local playerGui = player:WaitForChild("PlayerGui")
 local character = player.Character or player.CharacterAdded:Wait()
 local hrp       = character:WaitForChild("HumanoidRootPart")
 local humanoid  = character:WaitForChild("Humanoid")
+
+-- ══════════════════════════════════════════════════════════════════
+-- VERIFICAÇÃO DE PLACE ID
+-- ══════════════════════════════════════════════════════════════════
+local REQUIRED_PLACE_ID = 140329624095534
+local GAME_NAME         = "Build a Bamboo Factory"
+local GAME_URL          = "https://www.roblox.com/games/" .. REQUIRED_PLACE_ID
+
+local function showWrongPlaceScreen()
+    local errGui = Instance.new("ScreenGui", playerGui)
+    errGui.Name           = "BFHub_WrongPlace"
+    errGui.ResetOnSpawn   = false
+    errGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    errGui.IgnoreGuiInset = true
+
+    -- Fundo escuro com gradiente
+    local bg = Instance.new("Frame", errGui)
+    bg.Size              = UDim2.new(1, 0, 1, 0)
+    bg.BackgroundColor3  = Color3.fromRGB(6, 6, 14)
+    bg.BorderSizePixel   = 0
+    bg.ZIndex            = 1000
+    local bgGrad = Instance.new("UIGradient", bg)
+    bgGrad.Color    = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(10, 8, 22)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(4,  3, 10)),
+    }
+    bgGrad.Rotation = 135
+
+    -- Partículas de fundo
+    local particleActive2 = true
+    task.spawn(function()
+        while particleActive2 and bg.Parent do
+            local p = Instance.new("Frame", bg)
+            local sz = math.random(2, 4)
+            p.Size = UDim2.new(0, sz, 0, sz)
+            p.Position = UDim2.new(math.random() * 0.9 + 0.05, 0, 1.05, 0)
+            p.BackgroundColor3 = ({
+                Color3.fromRGB(255, 70,  90),
+                Color3.fromRGB(255, 140, 50),
+                Color3.fromRGB(255, 200, 60),
+            })[math.random(1, 3)]
+            p.BackgroundTransparency = math.random(40, 65) / 100
+            p.BorderSizePixel = 0; p.ZIndex = 1001
+            Instance.new("UICorner", p).CornerRadius = UDim.new(1, 0)
+            local dur = math.random(30, 55) / 10
+            TweenService:Create(p, TweenInfo.new(dur, Enum.EasingStyle.Linear), {
+                Position             = UDim2.new(p.Position.X.Scale, 0, -0.05, 0),
+                BackgroundTransparency = 1,
+            }):Play()
+            task.delay(dur, function() if p and p.Parent then p:Destroy() end end)
+            task.wait(math.random(8, 20) / 100)
+        end
+    end)
+
+    -- Card central
+    local card = Instance.new("Frame", bg)
+    card.Size            = UDim2.new(0, 420, 0, 340)
+    card.AnchorPoint     = Vector2.new(0.5, 0.5)
+    card.Position        = UDim2.new(0.5, 0, 0.5, 0)
+    card.BackgroundColor3 = Color3.fromRGB(18, 14, 28)
+    card.BorderSizePixel = 0
+    card.ZIndex          = 1002
+    card.BackgroundTransparency = 1  -- começa invisível para animar
+    Instance.new("UICorner", card).CornerRadius = UDim.new(0, 20)
+    local cardGrad = Instance.new("UIGradient", card)
+    cardGrad.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(28, 18, 40)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(14, 10, 22)),
+    }
+    cardGrad.Rotation = 135
+
+    -- Borda vermelha pulsante
+    local cardStroke = Instance.new("UIStroke", card)
+    cardStroke.Color       = Color3.fromRGB(255, 70, 90)
+    cardStroke.Thickness   = 2
+    cardStroke.Transparency = 0
+    task.spawn(function()
+        while cardStroke and cardStroke.Parent do
+            TweenService:Create(cardStroke, TweenInfo.new(1.0, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {Transparency = 0.6}):Play()
+            task.wait(1.0)
+            TweenService:Create(cardStroke, TweenInfo.new(1.0, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {Transparency = 0.0}):Play()
+            task.wait(1.0)
+        end
+    end)
+
+    -- Glow externo vermelho
+    local glow = Instance.new("Frame", bg)
+    glow.Size             = UDim2.new(0, 480, 0, 400)
+    glow.AnchorPoint      = Vector2.new(0.5, 0.5)
+    glow.Position         = UDim2.new(0.5, 0, 0.5, 0)
+    glow.BackgroundColor3 = Color3.fromRGB(180, 30, 50)
+    glow.BackgroundTransparency = 0.88
+    glow.BorderSizePixel  = 0
+    glow.ZIndex           = 1001
+    Instance.new("UICorner", glow).CornerRadius = UDim.new(0, 28)
+    task.spawn(function()
+        while glow and glow.Parent do
+            TweenService:Create(glow, TweenInfo.new(1.4, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = 0.80}):Play()
+            task.wait(1.4)
+            TweenService:Create(glow, TweenInfo.new(1.4, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = 0.92}):Play()
+            task.wait(1.4)
+        end
+    end)
+
+    -- Ícone de erro (círculo com X)
+    local iconRing = Instance.new("Frame", card)
+    iconRing.Size             = UDim2.new(0, 72, 0, 72)
+    iconRing.AnchorPoint      = Vector2.new(0.5, 0)
+    iconRing.Position         = UDim2.new(0.5, 0, 0, 24)
+    iconRing.BackgroundColor3 = Color3.fromRGB(255, 70, 90)
+    iconRing.BackgroundTransparency = 0.75
+    iconRing.BorderSizePixel  = 0
+    iconRing.ZIndex           = 1003
+    Instance.new("UICorner", iconRing).CornerRadius = UDim.new(1, 0)
+    local iconStroke = Instance.new("UIStroke", iconRing)
+    iconStroke.Color     = Color3.fromRGB(255, 70, 90)
+    iconStroke.Thickness = 2.5
+    iconStroke.Transparency = 0.2
+    local iconLbl = Instance.new("TextLabel", iconRing)
+    iconLbl.Size                   = UDim2.new(1, 0, 1, 0)
+    iconLbl.BackgroundTransparency = 1
+    iconLbl.Text                   = "✕"
+    iconLbl.TextColor3             = Color3.fromRGB(255, 100, 110)
+    iconLbl.Font                   = Enum.Font.GothamBold
+    iconLbl.TextSize               = 36
+    iconLbl.ZIndex                 = 1004
+    -- pulsa levemente
+    task.spawn(function()
+        while iconRing and iconRing.Parent do
+            TweenService:Create(iconRing, TweenInfo.new(0.9, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
+                {BackgroundTransparency = 0.55, Size = UDim2.new(0, 78, 0, 78)}):Play()
+            task.wait(0.9)
+            TweenService:Create(iconRing, TweenInfo.new(0.9, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
+                {BackgroundTransparency = 0.78, Size = UDim2.new(0, 72, 0, 72)}):Play()
+            task.wait(0.9)
+        end
+    end)
+
+    -- Título
+    local title = Instance.new("TextLabel", card)
+    title.Size                   = UDim2.new(1, -32, 0, 32)
+    title.AnchorPoint            = Vector2.new(0.5, 0)
+    title.Position               = UDim2.new(0.5, 0, 0, 108)
+    title.BackgroundTransparency = 1
+    title.Text                   = "Jogo Incorreto"
+    title.Font                   = Enum.Font.GothamBold
+    title.TextSize               = 26
+    title.TextColor3             = Color3.fromRGB(255, 255, 255)
+    title.ZIndex                 = 1003
+    local titleGrad = Instance.new("UIGradient", title)
+    titleGrad.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0,   Color3.fromRGB(255, 90,  110)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 255, 255)),
+        ColorSequenceKeypoint.new(1,   Color3.fromRGB(255, 160,  60)),
+    }
+
+    -- Subtítulo
+    local sub = Instance.new("TextLabel", card)
+    sub.Size                   = UDim2.new(1, -40, 0, 20)
+    sub.AnchorPoint            = Vector2.new(0.5, 0)
+    sub.Position               = UDim2.new(0.5, 0, 0, 146)
+    sub.BackgroundTransparency = 1
+    sub.Text                   = "Este hub só funciona no jogo correto."
+    sub.Font                   = Enum.Font.Gotham
+    sub.TextSize               = 13
+    sub.TextColor3             = Color3.fromRGB(160, 150, 180)
+    sub.ZIndex                 = 1003
+
+    -- Separador
+    local sep = Instance.new("Frame", card)
+    sep.Size             = UDim2.new(0.8, 0, 0, 1)
+    sep.AnchorPoint      = Vector2.new(0.5, 0)
+    sep.Position         = UDim2.new(0.5, 0, 0, 174)
+    sep.BackgroundColor3 = Color3.fromRGB(80, 50, 100)
+    sep.BorderSizePixel  = 0
+    sep.ZIndex           = 1003
+    local sepGrad = Instance.new("UIGradient", sep)
+    sepGrad.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0,   Color3.fromRGB(0, 0, 0)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 70, 90)),
+        ColorSequenceKeypoint.new(1,   Color3.fromRGB(0, 0, 0)),
+    }
+
+    -- Caixa de info do jogo correto
+    local infoBox = Instance.new("Frame", card)
+    infoBox.Size             = UDim2.new(1, -40, 0, 72)
+    infoBox.AnchorPoint      = Vector2.new(0.5, 0)
+    infoBox.Position         = UDim2.new(0.5, 0, 0, 184)
+    infoBox.BackgroundColor3 = Color3.fromRGB(12, 8, 20)
+    infoBox.BorderSizePixel  = 0
+    infoBox.ZIndex           = 1003
+    Instance.new("UICorner", infoBox).CornerRadius = UDim.new(0, 12)
+    Instance.new("UIStroke", infoBox).Color        = Color3.fromRGB(60, 40, 80)
+    Instance.new("UIStroke", infoBox).Thickness    = 1
+
+    local infoLine1 = Instance.new("TextLabel", infoBox)
+    infoLine1.Size                   = UDim2.new(1, -16, 0, 22)
+    infoLine1.Position               = UDim2.new(0, 8, 0, 8)
+    infoLine1.BackgroundTransparency = 1
+    infoLine1.Text                   = "Jogo necessário:"
+    infoLine1.Font                   = Enum.Font.Gotham
+    infoLine1.TextSize               = 11
+    infoLine1.TextColor3             = Color3.fromRGB(140, 130, 160)
+    infoLine1.TextXAlignment         = Enum.TextXAlignment.Left
+    infoLine1.ZIndex                 = 1004
+
+    local infoLine2 = Instance.new("TextLabel", infoBox)
+    infoLine2.Size                   = UDim2.new(1, -16, 0, 22)
+    infoLine2.Position               = UDim2.new(0, 8, 0, 26)
+    infoLine2.BackgroundTransparency = 1
+    infoLine2.Text                   = "🎋  " .. GAME_NAME
+    infoLine2.Font                   = Enum.Font.GothamBold
+    infoLine2.TextSize               = 14
+    infoLine2.TextColor3             = Color3.fromRGB(255, 200, 60)
+    infoLine2.TextXAlignment         = Enum.TextXAlignment.Left
+    infoLine2.ZIndex                 = 1004
+
+    local infoLine3 = Instance.new("TextLabel", infoBox)
+    infoLine3.Size                   = UDim2.new(1, -16, 0, 18)
+    infoLine3.Position               = UDim2.new(0, 8, 0, 50)
+    infoLine3.BackgroundTransparency = 1
+    infoLine3.Text                   = "Place ID: " .. tostring(REQUIRED_PLACE_ID)
+    infoLine3.Font                   = Enum.Font.Gotham
+    infoLine3.TextSize               = 10
+    infoLine3.TextColor3             = Color3.fromRGB(100, 90, 120)
+    infoLine3.TextXAlignment         = Enum.TextXAlignment.Left
+    infoLine3.ZIndex                 = 1004
+
+    -- ── Botão "Ir Para" ──────────────────────────────────────────
+    local goBtn = Instance.new("TextButton", card)
+    goBtn.Size             = UDim2.new(0, 160, 0, 42)
+    goBtn.AnchorPoint      = Vector2.new(0, 0)
+    goBtn.Position         = UDim2.new(0, 20, 0, 268)
+    goBtn.BackgroundColor3 = Color3.fromRGB(40, 120, 60)
+    goBtn.BorderSizePixel  = 0
+    goBtn.Text             = "▶  Ir Para o Jogo"
+    goBtn.TextColor3       = Color3.fromRGB(255, 255, 255)
+    goBtn.Font             = Enum.Font.GothamBold
+    goBtn.TextSize         = 14
+    goBtn.ZIndex           = 1004
+    Instance.new("UICorner", goBtn).CornerRadius = UDim.new(0, 12)
+    local goBtnStroke = Instance.new("UIStroke", goBtn)
+    goBtnStroke.Color     = Color3.fromRGB(60, 220, 120)
+    goBtnStroke.Thickness = 1.5
+    goBtnStroke.Transparency = 0.3
+
+    -- Ripple no botão Ir Para
+    goBtn.MouseButton1Click:Connect(function()
+        -- Ripple visual
+        local r = Instance.new("Frame", goBtn)
+        r.AnchorPoint = Vector2.new(0.5, 0.5); r.Size = UDim2.new(0, 0, 0, 0)
+        r.Position = UDim2.new(0.5, 0, 0.5, 0); r.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        r.BackgroundTransparency = 0.7; r.BorderSizePixel = 0; r.ZIndex = 1006
+        Instance.new("UICorner", r).CornerRadius = UDim.new(1, 0)
+        TweenService:Create(r, TweenInfo.new(0.45, Enum.EasingStyle.Quad), {
+            Size = UDim2.new(0, 300, 0, 300), BackgroundTransparency = 1
+        }):Play()
+        task.delay(0.45, function() if r and r.Parent then r:Destroy() end end)
+
+        -- Teleporta ao jogo correto
+        local success, err = pcall(function()
+            game:GetService("TeleportService"):Teleport(REQUIRED_PLACE_ID)
+        end)
+        if not success then
+            -- Fallback: mostra o link
+            goBtn.Text = "ID: " .. tostring(REQUIRED_PLACE_ID)
+            TweenService:Create(goBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(60, 60, 20)}):Play()
+            task.delay(2, function()
+                goBtn.Text = "▶  Ir Para o Jogo"
+                TweenService:Create(goBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(40, 120, 60)}):Play()
+            end)
+        end
+    end)
+    goBtn.MouseEnter:Connect(function()
+        TweenService:Create(goBtn, TweenInfo.new(0.18), {BackgroundColor3 = Color3.fromRGB(55, 160, 80)}):Play()
+        TweenService:Create(goBtnStroke, TweenInfo.new(0.18), {Transparency = 0}):Play()
+    end)
+    goBtn.MouseLeave:Connect(function()
+        TweenService:Create(goBtn, TweenInfo.new(0.18), {BackgroundColor3 = Color3.fromRGB(40, 120, 60)}):Play()
+        TweenService:Create(goBtnStroke, TweenInfo.new(0.18), {Transparency = 0.3}):Play()
+    end)
+
+    -- ── Botão X (fechar / destruir) ──────────────────────────────
+    local closeBtn = Instance.new("TextButton", card)
+    closeBtn.Size             = UDim2.new(0, 160, 0, 42)
+    closeBtn.AnchorPoint      = Vector2.new(1, 0)
+    closeBtn.Position         = UDim2.new(1, -20, 0, 268)
+    closeBtn.BackgroundColor3 = Color3.fromRGB(60, 18, 22)
+    closeBtn.BorderSizePixel  = 0
+    closeBtn.Text             = "✕  Fechar"
+    closeBtn.TextColor3       = Color3.fromRGB(255, 255, 255)
+    closeBtn.Font             = Enum.Font.GothamBold
+    closeBtn.TextSize         = 14
+    closeBtn.ZIndex           = 1004
+    Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 12)
+    local closeBtnStroke = Instance.new("UIStroke", closeBtn)
+    closeBtnStroke.Color       = Color3.fromRGB(255, 70, 90)
+    closeBtnStroke.Thickness   = 1.5
+    closeBtnStroke.Transparency = 0.3
+
+    closeBtn.MouseButton1Click:Connect(function()
+        -- Ripple visual
+        local r = Instance.new("Frame", closeBtn)
+        r.AnchorPoint = Vector2.new(0.5, 0.5); r.Size = UDim2.new(0, 0, 0, 0)
+        r.Position = UDim2.new(0.5, 0, 0.5, 0); r.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        r.BackgroundTransparency = 0.7; r.BorderSizePixel = 0; r.ZIndex = 1006
+        Instance.new("UICorner", r).CornerRadius = UDim.new(1, 0)
+        TweenService:Create(r, TweenInfo.new(0.45, Enum.EasingStyle.Quad), {
+            Size = UDim2.new(0, 300, 0, 300), BackgroundTransparency = 1
+        }):Play()
+        task.delay(0.45, function() if r and r.Parent then r:Destroy() end end)
+
+        particleActive2 = false
+        -- Animação de saída
+        TweenService:Create(card, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.In),
+            {Size = UDim2.new(0, 0, 0, 0), BackgroundTransparency = 1}):Play()
+        TweenService:Create(bg, TweenInfo.new(0.45, Enum.EasingStyle.Quad), {BackgroundTransparency = 1}):Play()
+        task.wait(0.48)
+        errGui:Destroy()
+    end)
+    closeBtn.MouseEnter:Connect(function()
+        TweenService:Create(closeBtn, TweenInfo.new(0.18), {BackgroundColor3 = Color3.fromRGB(90, 25, 30)}):Play()
+        TweenService:Create(closeBtnStroke, TweenInfo.new(0.18), {Transparency = 0}):Play()
+    end)
+    closeBtn.MouseLeave:Connect(function()
+        TweenService:Create(closeBtn, TweenInfo.new(0.18), {BackgroundColor3 = Color3.fromRGB(60, 18, 22)}):Play()
+        TweenService:Create(closeBtnStroke, TweenInfo.new(0.18), {Transparency = 0.3}):Play()
+    end)
+
+    -- ── Animação de entrada do card ──────────────────────────────
+    card.Size = UDim2.new(0, 0, 0, 0)
+    TweenService:Create(card, TweenInfo.new(0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+        {Size = UDim2.new(0, 420, 0, 340), BackgroundTransparency = 0}):Play()
+end
+
+-- Executa a verificação ANTES de qualquer outra coisa
+if game.PlaceId ~= REQUIRED_PLACE_ID then
+    showWrongPlaceScreen()
+    return  -- interrompe o restante do script
+end
+
+-- ══════════════════════════════════════════════════════════════════
+-- (Place ID válido — hub continua normalmente abaixo)
+-- ══════════════════════════════════════════════════════════════════
 
 local tpwalkSpeed    = 80
 local jpower         = 110
@@ -190,9 +535,9 @@ screenGui.ResetOnSpawn   = false
 screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 screenGui.IgnoreGuiInset = true
 
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- ══════════════════════════════════════════════════════════════════
 -- TELA DE CARREGAMENTO
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- ══════════════════════════════════════════════════════════════════
 local loadScreen = Instance.new("Frame", screenGui)
 loadScreen.Size = UDim2.new(1,0,1,0)
 loadScreen.BackgroundColor3 = Color3.fromRGB(6,6,14)
@@ -288,9 +633,9 @@ task.spawn(function()
     end
 end)
 
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- ══════════════════════════════════════════════════════════════════
 -- NOTIFICACOES
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- ══════════════════════════════════════════════════════════════════
 local notifStack = {}
 local function getNotifIcon(col)
     if col == C.accent_green  then return "[OK]"
@@ -347,9 +692,9 @@ local function notify(title, msg, dur, col)
     end)
 end
 
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- ══════════════════════════════════════════════════════════════════
 -- GLOWS
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- ══════════════════════════════════════════════════════════════════
 local function makeGlow(sz, off, col, trans)
     local g = Instance.new("Frame", screenGui)
     g.AnchorPoint = Vector2.new(0.5,0.5)
@@ -364,9 +709,9 @@ local g2_ = makeGlow(22, 4, Color3.fromRGB(20,100,60),  0.84)
 local g3  = makeGlow(40, 6, Color3.fromRGB(15,80,50),   0.90)
 local allGlows = {g1, g2_, g3}
 
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- ══════════════════════════════════════════════════════════════════
 -- MAIN FRAME
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- ══════════════════════════════════════════════════════════════════
 local mainFrame = Instance.new("Frame", screenGui)
 mainFrame.AnchorPoint = Vector2.new(0.5,0.5); mainFrame.Size = UDim2.new(0,0,0,0)
 mainFrame.Position = UDim2.new(0.5,0,0.5,0); mainFrame.BackgroundColor3 = C.bg_dark
@@ -393,18 +738,18 @@ local function syncGlows()
     g3.Position  = UDim2.new(p.X.Scale,p.X.Offset,p.Y.Scale,p.Y.Offset+18)
 end
 
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- ══════════════════════════════════════════════════════════════════
 -- DRAG (mover janela)
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- ══════════════════════════════════════════════════════════════════
 local dragging, dragInput, dragStart, startPos = false, nil, nil, nil
 local glowDirty = false
 RunService.Heartbeat:Connect(function()
     if glowDirty then syncGlows(); glowDirty = false end
 end)
 
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- ══════════════════════════════════════════════════════════════════
 -- TITULO
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- ══════════════════════════════════════════════════════════════════
 local titleBar = Instance.new("Frame", mainFrame)
 titleBar.Size = UDim2.new(1,0,0,62); titleBar.BackgroundColor3 = Color3.fromRGB(14,14,28)
 titleBar.BorderSizePixel = 0; titleBar.ZIndex = 10
@@ -466,9 +811,9 @@ Instance.new("UICorner", minimizeBtn).CornerRadius = UDim.new(0,9); addRipple(mi
 minimizeBtn.MouseEnter:Connect(function() tw(minimizeBtn,{BackgroundTransparency=0},0.2) end)
 minimizeBtn.MouseLeave:Connect(function() tw(minimizeBtn,{BackgroundTransparency=0.3},0.2) end)
 
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- ══════════════════════════════════════════════════════════════════
 -- BOTAO RESTAURAR
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- ══════════════════════════════════════════════════════════════════
 local restoreBtn = Instance.new("Frame", screenGui)
 restoreBtn.Name = "RestoreBtn"; restoreBtn.Size = UDim2.new(0,55,0,55); restoreBtn.Position = UDim2.new(1,-70,0,80)
 restoreBtn.BackgroundColor3 = C.bg_dark; restoreBtn.BorderSizePixel = 0; restoreBtn.Visible = false; restoreBtn.ZIndex = 1000; restoreBtn.Active = true
@@ -496,10 +841,10 @@ task.spawn(function()
     end
 end)
 
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- ══════════════════════════════════════════════════════════════════
 -- MINIMIZAR / RESTAURAR
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
-local hubIsOpen = false  -- rastreia estado atual do hub
+-- ══════════════════════════════════════════════════════════════════
+local hubIsOpen = false
 
 local function hideHub()
     tw(mainFrame,{BackgroundTransparency=0.3},0.08); task.wait(0.08)
@@ -530,12 +875,12 @@ end
 minimizeBtn.MouseButton1Click:Connect(hideHub)
 restoreClick.MouseButton1Click:Connect(showHub)
 
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- ══════════════════════════════════════════════════════════════════
 -- AUTOCLOSE
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- ══════════════════════════════════════════════════════════════════
 local autoCloseEnabled = false
 local autoCloseThread  = nil
-local AUTO_CLOSE_INTERVAL = 5  -- segundos
+local AUTO_CLOSE_INTERVAL = 5
 
 local function stopAutoClose()
     autoCloseEnabled = false
@@ -555,9 +900,9 @@ local function startAutoClose()
     end)
 end
 
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- ══════════════════════════════════════════════════════════════════
 -- CONTENT + ABAS
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- ══════════════════════════════════════════════════════════════════
 local contentFrame = Instance.new("Frame", mainFrame)
 contentFrame.Size = UDim2.new(1,-16,1,-72); contentFrame.Position = UDim2.new(0,8,0,64)
 contentFrame.BackgroundTransparency = 1; contentFrame.ClipsDescendants = true
@@ -655,9 +1000,9 @@ task.defer(function()
     tabIndicator.Position=UDim2.new(0,left,0,5)
 end)
 
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- ══════════════════════════════════════════════════════════════════
 -- HELPERS DE CARD / TOGGLE
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- ══════════════════════════════════════════════════════════════════
 local function makeCard(parent, height, order)
     local c = Instance.new("Frame", parent)
     c.Size = UDim2.new(1,-6,0,height); c.BackgroundColor3 = C.bg_card
@@ -722,9 +1067,9 @@ local function makeInputField(parent, labelText, defaultValue, accentColor, onCh
     return box, card
 end
 
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- ══════════════════════════════════════════════════════════════════
 -- FORWARD DECLARATIONS
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- ══════════════════════════════════════════════════════════════════
 local collectDelay = tonumber(savedSettings["collect_delay"]) or 4.25
 local buyDelay     = tonumber(savedSettings["buy_delay"])     or 0.1
 local cashDelay    = tonumber(savedSettings["cash_delay"])    or 10
@@ -738,11 +1083,11 @@ local infJumpSyncFn  = function() end
 local acSyncFn       = function() end
 local abSyncFn       = function() end
 local cashSyncFn     = function() end
-local autoCloseSyncFn = function() end  -- NEW
+local autoCloseSyncFn = function() end
 
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- ══════════════════════════════════════════════════════════════════
 -- AUTOCOLLECT
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- ══════════════════════════════════════════════════════════════════
 local autoCollectEnabled = false; local autoCollectThread = nil
 local acClick,acUpdateVis,acGetEnabled,acSetEnabled = makeToggleCard(collectFrame,"AutoCollect","[C]",C.accent_green,1)
 collectDelayBox,_ = makeInputField(collectFrame,"Delay entre TPs (segundos)",collectDelay,C.accent_green,function(val)
@@ -822,9 +1167,9 @@ end
 acClick.MouseButton1Click:Connect(function() setAutoCollect(not autoCollectEnabled) end)
 acSyncFn = function(v) setAutoCollect(v) end
 
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
--- AUTOBUY โ€“ helpers de dados
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- ══════════════════════════════════════════════════════════════════
+-- AUTOBUY – helpers de dados
+-- ══════════════════════════════════════════════════════════════════
 local function loadAutoBuyItemsFull()
     local ok, data = pcall(function() return readfile(SAVE_FILE_AUTOBUY) end)
     if not ok or not data or data == "" then return {} end
@@ -867,9 +1212,9 @@ local function fuzzyMatch(query, target)
     return fuzzyMatchTokens(tokens, target)
 end
 
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
--- HELPER: tycoon mais prรณximo (reutilizado por AutoBuy)
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- ══════════════════════════════════════════════════════════════════
+-- HELPER: tycoon mais próximo (reutilizado por AutoBuy)
+-- ══════════════════════════════════════════════════════════════════
 local function getNearestTycoonForBuy()
     local nearest, shortest = nil, math.huge
     for _, t in ipairs(workspace.Tycoons:GetChildren()) do
@@ -882,9 +1227,9 @@ local function getNearestTycoonForBuy()
     return nearest
 end
 
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
--- scanWorkspaceNames โ€“ varre apenas Placements do tycoon mais prรณximo
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- ══════════════════════════════════════════════════════════════════
+-- scanWorkspaceNames – varre apenas Placements do tycoon mais próximo
+-- ══════════════════════════════════════════════════════════════════
 local function scanWorkspaceNames()
     local seen = {}; local names = {}
     local nearest = getNearestTycoonForBuy()
@@ -903,9 +1248,9 @@ end
 local autoBuyItems = loadAutoBuyItemsFull()
 local autoBuyEnabled = false; local autoBuyThread = nil
 
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
--- resolveItemName โ€“ busca somente em Placements do tycoon mais prรณximo
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- ══════════════════════════════════════════════════════════════════
+-- resolveItemName – busca somente em Placements do tycoon mais próximo
+-- ══════════════════════════════════════════════════════════════════
 local function resolveItemName(entry)
     if entry.flex then
         local found = nil
@@ -993,14 +1338,14 @@ end
 abClick.MouseButton1Click:Connect(function() setAutoBuy(not autoBuyEnabled) end)
 abSyncFn = function(v) setAutoBuy(v) end
 
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- ══════════════════════════════════════════════════════════════════
 -- CARD ITENS SALVOS
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- ══════════════════════════════════════════════════════════════════
 local itemsCard = makeCard(buyFrame, 80, 3)
 local ics = itemsCard:FindFirstChildWhichIsA("UIStroke"); if ics then tw(ics,{Color=C.accent_gold},0) end
 local itemsLbl = Instance.new("TextLabel",itemsCard)
 itemsLbl.Size=UDim2.new(1,-16,0,20); itemsLbl.Position=UDim2.new(0,10,0,6)
-itemsLbl.BackgroundTransparency=1; itemsLbl.Text="Itens salvos (arraste โ ฟ para reordenar)"
+itemsLbl.BackgroundTransparency=1; itemsLbl.Text="Itens salvos (arraste ⠿ para reordenar)"
 itemsLbl.TextColor3=C.accent_gold; itemsLbl.Font=Enum.Font.GothamBold; itemsLbl.TextSize=12; itemsLbl.TextXAlignment=Enum.TextXAlignment.Left
 local itemsScroll = Instance.new("ScrollingFrame",itemsCard)
 itemsScroll.Size=UDim2.new(1,-16,0,46); itemsScroll.Position=UDim2.new(0,8,0,28)
@@ -1018,9 +1363,9 @@ itemsLayout2:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     itemsCard.Size = UDim2.new(1,-6,0,math.max(80,h+46)); itemsScroll.Size = UDim2.new(1,-16,0,math.min(h,140))
 end)
 
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
--- DRAG AND DROP โ€“ estado global
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- ══════════════════════════════════════════════════════════════════
+-- DRAG AND DROP – estado global
+-- ══════════════════════════════════════════════════════════════════
 local dragState = {
     active     = false,
     entry      = nil,
@@ -1047,9 +1392,9 @@ local function badgeColor(idx)
     else                 return C.text_muted,                C.bg_deep end
 end
 
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- ══════════════════════════════════════════════════════════════════
 -- rebuildItemsList
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- ══════════════════════════════════════════════════════════════════
 local rebuildItemsList
 
 rebuildItemsList = function()
@@ -1080,7 +1425,7 @@ rebuildItemsList = function()
         local badgeLbl = Instance.new("TextLabel", badgeBg)
         badgeLbl.Size                   = UDim2.new(1,0,1,0)
         badgeLbl.BackgroundTransparency = 1
-        badgeLbl.Text                   = tostring(idx).."ยบ"
+        badgeLbl.Text                   = tostring(idx).."º"
         badgeLbl.TextColor3             = bc
         badgeLbl.Font                   = Enum.Font.GothamBold
         badgeLbl.TextSize               = 10
@@ -1089,7 +1434,7 @@ rebuildItemsList = function()
         handle.Size               = UDim2.new(0,14,1,0)
         handle.Position           = UDim2.new(0,32,0,0)
         handle.BackgroundTransparency = 1
-        handle.Text               = "โ ฟ"
+        handle.Text               = "⠿"
         handle.TextColor3         = C.text_muted
         handle.Font               = Enum.Font.GothamBold
         handle.TextSize           = 16
@@ -1237,7 +1582,7 @@ rebuildItemsList = function()
             ghostLbl.Size               = UDim2.new(1,-16,1,0)
             ghostLbl.Position           = UDim2.new(0,8,0,0)
             ghostLbl.BackgroundTransparency = 1
-            ghostLbl.Text               = tostring(srcIdx).."ยบ  "..entryRef.name
+            ghostLbl.Text               = tostring(srcIdx).."º  "..entryRef.name
             ghostLbl.TextColor3         = C.accent_gold
             ghostLbl.Font               = Enum.Font.GothamBold
             ghostLbl.TextSize           = 12
@@ -1255,7 +1600,7 @@ rebuildItemsList = function()
     end
 end
 
--- โ”€โ”€โ”€ Heartbeat: move ghost + preview reorder โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€
+-- ─── Heartbeat: move ghost + preview reorder ──────────────────────
 UserInputService.InputChanged:Connect(function(input)
     if not dragState.active or not dragState.ghost then return end
     if input.UserInputType ~= Enum.UserInputType.MouseMovement
@@ -1284,7 +1629,7 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
--- โ”€โ”€โ”€ Soltar: salva e limpa โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€
+-- ─── Soltar: salva e limpa ────────────────────────────────────────
 UserInputService.InputEnded:Connect(function(input)
     if not dragState.active then return end
     if input.UserInputType ~= Enum.UserInputType.MouseButton1
@@ -1303,9 +1648,9 @@ UserInputService.InputEnded:Connect(function(input)
     rebuildItemsList()
 end)
 
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- ══════════════════════════════════════════════════════════════════
 -- INPUT CARD (busca + salvar)
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- ══════════════════════════════════════════════════════════════════
 local suggestCard, suggestScroll, selectedSuggestions, addBtn = nil, nil, {}, nil
 local function closeSuggestions()
     if suggestCard then suggestCard.Visible=false; suggestCard.Size=UDim2.new(1,-6,0,0) end
@@ -1463,9 +1808,9 @@ addBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- ══════════════════════════════════════════════════════════════════
 -- DEBUG CARD
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- ══════════════════════════════════════════════════════════════════
 local debugCard = makeCard(buyFrame, 90, 6)
 local dcs = debugCard:FindFirstChildWhichIsA("UIStroke"); if dcs then tw(dcs,{Color=C.accent_purple},0) end
 local debugHeader = Instance.new("TextLabel",debugCard)
@@ -1502,9 +1847,9 @@ copyDebugBtn.MouseButton1Click:Connect(function()
     else notify("Debug","Compre um item manualmente primeiro!",2,C.off_color) end
 end)
 
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- ══════════════════════════════════════════════════════════════════
 -- AUTOCASH
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- ══════════════════════════════════════════════════════════════════
 local autoCashEnabled = false; local autoCashThread = nil
 local cashClick,cashUpdateVis,cashGetEnabled,cashSetEnabled = makeToggleCard(cashFrame,"AutoCash","[$]",C.accent_cyan,1)
 cashDelayBox,_ = makeInputField(cashFrame,"Intervalo de envio (segundos)",cashDelay,C.accent_cyan,function(val)
@@ -1531,9 +1876,9 @@ end
 cashClick.MouseButton1Click:Connect(function() setAutoCash(not autoCashEnabled) end)
 cashSyncFn = function(v) setAutoCash(v) end
 
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- ══════════════════════════════════════════════════════════════════
 -- getCurrentData / applyProfileData
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- ══════════════════════════════════════════════════════════════════
 local function getCurrentData()
     return {
         tpwalkSpeed        = tpwalkSpeed,
@@ -1547,7 +1892,7 @@ local function getCurrentData()
         autoBuyEnabled     = autoBuyEnabled,
         autoCashEnabled    = autoCashEnabled,
         autoRebirthEnabled = (_G._BFHub_RebirthState and _G._BFHub_RebirthState.enabled) or false,
-        autoCloseEnabled   = autoCloseEnabled,  -- NEW
+        autoCloseEnabled   = autoCloseEnabled,
     }
 end
 
@@ -1584,7 +1929,6 @@ local function applyProfileData(data)
             end
         end
     end
-    -- NEW: restaura AutoClose do preset
     if data.autoCloseEnabled ~= nil then
         autoCloseSyncFn(data.autoCloseEnabled == true)
     end
@@ -1592,9 +1936,9 @@ local function applyProfileData(data)
     notify("Preset","Perfil '"..ProfileSystem.currentProfile.."' carregado!",2,C.accent_gold)
 end
 
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- ══════════════════════════════════════════════════════════════════
 -- CONFIG TAB
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- ══════════════════════════════════════════════════════════════════
 local function makeConfigToggle(parent, label, icon, initial, order, color, onChange)
     local card = makeCard(parent,54,order); local cs2 = card:FindFirstChildWhichIsA("UIStroke")
     local state = {value=initial}
@@ -1858,9 +2202,6 @@ local function buildConfigTab()
     end)
     infJumpSyncFn=function(v) infJumpEnabled=v; ijUpd(v) end
 
-    -- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
-    -- TOGGLE AUTOCLOSE (order=5, acima do AntiAFK)
-    -- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
     local acUpd = makeConfigToggle(configFrame,"AutoClose","[-]",autoCloseEnabled,5,C.accent_blue,function(v)
         if v then
             startAutoClose()
@@ -1870,7 +2211,6 @@ local function buildConfigTab()
             notify("AutoClose","AutoClose desativado.",2,C.off_color)
         end
     end)
-    -- hint abaixo do toggle
     do
         local hint = makeCard(configFrame, 36, 6)
         local hs = hint:FindFirstChildWhichIsA("UIStroke"); if hs then tw(hs,{Color=C.accent_blue},0) end
@@ -1882,11 +2222,9 @@ local function buildConfigTab()
     end
 
     autoCloseSyncFn = function(v)
-        autoCloseEnabled = false  -- reseta antes de aplicar
+        autoCloseEnabled = false
         stopAutoClose()
-        if v then
-            startAutoClose()
-        end
+        if v then startAutoClose() end
         acUpd(v)
     end
 
@@ -1950,9 +2288,9 @@ local function buildConfigTab()
 end
 buildConfigTab()
 
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- ══════════════════════════════════════════════════════════════════
 -- ABA REBIRTH
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- ══════════════════════════════════════════════════════════════════
 local function buildRebirthTab()
     local rebirthRemote = game:GetService("ReplicatedStorage").Remotes.Rebirth
 
@@ -2106,9 +2444,9 @@ local function buildRebirthTab()
 end
 buildRebirthTab()
 
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- ══════════════════════════════════════════════════════════════════
 -- TPWALK
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- ══════════════════════════════════════════════════════════════════
 local tpwalkConn = nil
 local function setupTpwalk(char)
     if tpwalkConn then tpwalkConn:Disconnect(); tpwalkConn=nil end
@@ -2119,9 +2457,9 @@ local function setupTpwalk(char)
 end
 setupTpwalk(character)
 
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- ══════════════════════════════════════════════════════════════════
 -- JUMP POWER + INFJUMP
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- ══════════════════════════════════════════════════════════════════
 local function applyJump()
     if humanoid.UseJumpPower then humanoid.JumpPower=jpower else humanoid.JumpHeight=jpower end
 end
@@ -2135,9 +2473,9 @@ UserInputService.JumpRequest:Connect(function()
     end
 end)
 
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- ══════════════════════════════════════════════════════════════════
 -- RESPAWN
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- ══════════════════════════════════════════════════════════════════
 player.CharacterAdded:Connect(function(newChar)
     character=newChar; hrp=newChar:WaitForChild("HumanoidRootPart"); humanoid=newChar:WaitForChild("Humanoid")
     applyJump(); humanoid:GetPropertyChangedSignal("JumpPower"):Connect(applyJump); setupTpwalk(newChar)
@@ -2145,9 +2483,9 @@ player.CharacterAdded:Connect(function(newChar)
     notify("Respawn","Personagem recarregado!",2,C.accent_blue)
 end)
 
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- ══════════════════════════════════════════════════════════════════
 -- LOADING SEQUENCE
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- ══════════════════════════════════════════════════════════════════
 local function runLoadingSequence(onComplete)
     task.spawn(function()
         task.wait(0.2); tw(lsTitle,{TextTransparency=0},0.8); task.wait(0.3); tw(lsVer,{TextTransparency=0},0.8)
@@ -2176,9 +2514,9 @@ local function runLoadingSequence(onComplete)
     end)
 end
 
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
--- INICIALIZAรรO
--- โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•โ•
+-- ══════════════════════════════════════════════════════════════════
+-- INICIALIZAÇÃO
+-- ══════════════════════════════════════════════════════════════════
 rebuildItemsList()
 
 runLoadingSequence(function()
@@ -2193,7 +2531,7 @@ runLoadingSequence(function()
         end
         syncGlows(); task.wait(0.5)
         tw(mainStroke,{Transparency=0.7},0.2); task.wait(0.2); tw(mainStroke,{Transparency=0},0.3)
-        hubIsOpen = true  -- hub comeรงa aberto apรณs loading
+        hubIsOpen = true
         notify("Build a Bamboo Factory Hub","v2.5 carregado!",3,C.accent_green)
         task.delay(1.5, function() activateAntiAFK(nil) end)
         task.delay(0.6, function()
